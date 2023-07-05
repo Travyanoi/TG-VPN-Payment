@@ -1,0 +1,18 @@
+{
+    "server": {
+        "server_publickey": 1212,
+        "server_privatekey": 2121
+    },
+    "clients": {
+        "client1": {
+            "something": 123
+        },
+        "client2": {
+            "something": 1233
+        },
+        "VerniEye": {
+            "publickey": "/rpX0qdd1682IxDlLOvygUv0+0WaKE3QDedQ1z5U9C0=",
+            "privatekey": "QJGfs0uzvCP2RHQIq8ptn8lSHBf18FsMu6VJnpZmhmI="
+        }
+    }
+}
