@@ -4,15 +4,17 @@
         "server_privatekey": 2121
     },
     "clients": {
-        "client1": {
-            "something": 123
+        "Криптограф": {
+            "publickey": "xFf/VcZlO5Ek2UWVg1jbX4ENjVtuW0lgjv9Ql+eYRjk=",
+            "privatekey": "KAAss9m56yMIFwc8s9PVgpykTQeEuPrxSGCazz+rt14=",
+            "created_at": "2023-07-05 11:26:06.166302",
+            "enable": true
         },
-        "client2": {
-            "something": 1233
-        },
-        "VerniEye": {
-            "publickey": "/rpX0qdd1682IxDlLOvygUv0+0WaKE3QDedQ1z5U9C0=",
-            "privatekey": "QJGfs0uzvCP2RHQIq8ptn8lSHBf18FsMu6VJnpZmhmI="
+        "Alexandr": {
+            "publickey": "GM+fZzOjYesfU2Cm6W8Y8rWz3TDpN4i38m+oxkcJUSA=",
+            "privatekey": "UFrPSNoltVi0OKmxjP+o2g5tvRU8mEVwAjgm/InRqm0=",
+            "created_at": "2023-07-05 11:27:00.300704",
+            "enable": true
         }
     }
 }

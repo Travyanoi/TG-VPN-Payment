@@ -11,7 +11,7 @@ from aiogram.dispatcher.filters import Command
 from aiogram import Bot, Dispatcher, types
 from dotenv import load_dotenv
 
-db = peewee.SqliteDatabase("UserInfo.sqlite")
+db = peewee.SqliteDatabase("TG-VPN-Payment/UserInfo.sqlite")
 
 
 class UserInfo(Model):
@@ -32,24 +32,28 @@ dp = Dispatcher(bot)
 
 
 def json_formatter(chat_id: UserInfo.chat_id):
+    os.chdir("TG-VPN-Payment")
     data = json.load(open('data.json'))
 
     username: UserInfo = UserInfo.get(UserInfo.chat_id == chat_id)
 
-    subprocess.check_output(f"wg genkey & tee {username.first_name}_privatekey &"
-                            f"wg pubkey & tee {username.first_name}_publickey",
+    subprocess.check_output(f"wg genkey | tee {username.first_name}_privatekey |"
+                            f" wg pubkey | tee {username.first_name}_publickey",
                             shell=True).decode("utf-8").strip()
-
-    with open(f"{username}_privatekey") as privkey:
-        with open(f"{username}_publickey") as pubkey:
-            data["clients"].update({f"{username}": {"publickey": pubkey.read().strip(),
+    
+    with open(f"{username.first_name}_privatekey") as privkey:
+        with open(f"{username.first_name}_publickey") as pubkey:
+            data["clients"].update({f"{username.first_name}": {"publickey": pubkey.read().strip(),
                                                     "privatekey": f"{privkey.read().strip()}",
-                                                    "created_at": datetime.datetime.now(),
+                                                    "created_at": f"{datetime.datetime.now()}",
                                                     "enable": True
                                                     }})
+            os.remove(f"{privkey.name}")
+            os.remove(f"{pubkey.name}")
 
     with open('data.json', 'w') as f:
-        json.dump(data, f, indent=4)
+        json.dump(data, f, indent=4, ensure_ascii=False)
+    os.chdir("/home/ivan")
 
 
 @dp.message_handler(Command("start"))
