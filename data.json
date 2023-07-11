@@ -1,16 +1,17 @@
 {
     "server": {
         "address": "10.0.0.1/24",
-        "server_publickey": 1212,
-        "server_privatekey": 2121
+        "server_end_point": "94.103.81.237:51830",
+        "server_publickey": "EJK3m6r0A1cdMk692EziYIgbzkRouM6XRvAL4k01VQo=",
+        "server_privatekey": "OGo3LpK+GFHl1rgCWm9vZCoW2nU0GyZR9NmbDQr/xlk="
     },
     "clients": {
         "Криптограф": {
-            "address": "10.0.0.5/32",
-            "publickey": "ssov7bjnHRRYplSG+h99N3KjCFSUoYDegXeIyW+b3kI=",
-            "privatekey": "YB7Mw714/sg7bfEaxRLvqIb0YeemxQ3XqE43murktEk=",
-            "created_at": "2023-07-10 22:19:56.968014",
-            "expiration_of_sub_date": "2024-01-06 22:19:56.968014",
+            "address": "10.0.0.7/32",
+            "publickey": "Wu/Mk2NiT0K+skv/9kBkjWO9YvstqXfyhw9BRz5fKVc=",
+            "privatekey": "uOKb3q2xZ3j0BN6GQUX+Dm1eQkNThyEVFQmenLavy1Y=",
+            "created_at": "2023-07-11 11:09:37.806783",
+            "expiration_of_sub_date": "2023-11-08 11:09:37.806783",
             "enable": true
         },
         "Stels1200": {

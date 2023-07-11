@@ -34,8 +34,34 @@ bot = Bot(token=os.environ.get("BOT_TOKEN"))
 dp = Dispatcher(bot)
 
 
+def conf_file_for_user(chat_id: UserInfo.chat_id):   
+    stream = open('data.json')
+    data = json.load(stream)
+    
+    db_username_info: UserInfo = UserInfo.get(UserInfo.chat_id == chat_id)
+    js_username_info = data["clients"][db_username_info.first_name]
+    
+    with open(f"{db_username_info.first_name}_wg.conf", 'w') as file:
+        user_private_key = js_username_info["privatekey"]
+        user_address = js_username_info["address"]
+        file.write(f"[Interface]\n"
+                   f"Privatekey = {user_private_key}\n"
+                   f"Address = {user_address}\n"
+                   f"DNS = 8.8.8.8\n\n")
+        
+        server_public_key = data["server"]["server_publickey"]
+        server_end_point = data["server"]["server_end_point"]
+        file.write(f"[Peer]\n"
+                   f"PublicKey = {server_public_key}\n"
+                   f"AllowedIPs = 0.0.0.0/0\n"
+                   f"Endpoint = {server_end_point}\n"
+                   f"PersistentKeepalive = 20")
+        
+    stream.close()
+    
+
+
 def conf_file_formatter():
-    os.chdir("TG-VPN-Payment")
     stream = open('data.json')
     data = json.load(stream)
 
@@ -61,11 +87,9 @@ def conf_file_formatter():
                 continue
             
     stream.close()       
-    os.chdir("/home/ivan")
 
 
 def json_formatter(chat_id: UserInfo.chat_id, duration_of_sub: str):
-    os.chdir("TG-VPN-Payment")
     data = json.load(open('data.json'))
 
     username: UserInfo = UserInfo.get(UserInfo.chat_id == chat_id)
@@ -100,8 +124,6 @@ def json_formatter(chat_id: UserInfo.chat_id, duration_of_sub: str):
     with open('data.json', 'w') as f:
         json.dump(data, f, indent=4, ensure_ascii=False)
     
-    os.chdir("/home/ivan")
-    conf_file_formatter()
 
 
 @dp.message_handler(Command("start"))
@@ -124,10 +146,18 @@ async def cmd_start(message: types.Message):
 
 @dp.callback_query_handler(text=["1_month_sub", "4_months_sub", "6_months_sub", "12_months_sub"])
 async def payment_cmd(message: types.CallbackQuery):
+    os.chdir("TG-VPN-Payment")
     duration_of_subscription = re.split(regex_for_digit, message.data)
-    await bot.send_message(chat_id=message.message.chat.id, text="Сейчас все сделаю...")
+    await bot.edit_message_text(chat_id=message.message.chat.id, message_id=message.message.message_id, text="Сейчас все сделаю...")
 
     json_formatter(message.message.chat.id, str(duration_of_subscription[1]))
+    conf_file_formatter()
+    conf_file_for_user(message.message.chat.id)
+    with open(f"{message.message.chat.first_name}_wg.conf", 'rb') as file:
+        await bot.delete_message(chat_id=message.message.chat.id, message_id=message.message.message_id)
+        await bot.send_document(chat_id=message.message.chat.id, document=file, 
+                                caption="Вот ваш файл, его нужно будет выбрать в меню WireGuard ''выбрать туннель''")
+    os.chdir("/home/ivan")
 
 
 async def main():
