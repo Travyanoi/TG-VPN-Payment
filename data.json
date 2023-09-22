@@ -6,7 +6,7 @@
         "server_privatekey": "OGo3LpK+GFHl1rgCWm9vZCoW2nU0GyZR9NmbDQr/xlk="
     },
     "clients": {
-        "Ярослав": {
+        "425687623": {
             "chat_id": 5824481563,
             "address": "10.0.0.22/32",
             "publickey": "lzDC9OfyCYq4zSukieqF1ZUX1O8/7DokGFAyidX3pG4=",
@@ -17,12 +17,12 @@
         },
         "608862111": {
             "first_name": "Криптограф",
-            "address": "10.0.0.28/32",
-            "publickey": "xdieiudJ58BJIU8MtiqFOiCqfzylLGiMMJH+xvKEtls=",
-            "privatekey": "KFw5nPxh4tk7k7601d2P9i//RbylhJfUlBfTpLrJk18=",
-            "created_at": "2023-08-21 11:54:18.076978",
-            "expiration_of_sub_date": "2024-02-17 12:13:13.129827",
-            "enable": true
+            "address": "10.0.0.23/32",
+            "publickey": "Qen+w77Dtwcjv3pPzBumGlrFHNqfkrWnN61F1Urn1lE=",
+            "privatekey": "aCKfcZD9njUEylQUoOFZ6TLMjIR69ecgOuApWnO4CGs=",
+            "created_at": "2023-08-21 18:30:54.926655",
+            "expiration_of_sub_date": "2022-12-19 18:30:54.926655",
+            "enable": false
         }
     }
 }

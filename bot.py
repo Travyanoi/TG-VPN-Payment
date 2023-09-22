@@ -14,10 +14,11 @@ from dotenv import load_dotenv
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
-db = peewee.SqliteDatabase("TG-VPN-Payment/UserInfo.sqlite")
+db = peewee.SqliteDatabase(r"/mnt/f/Database/UserInfo.sqlite")
 
 regex_for_digit = re.compile(r"(\d+)")
 regex_for_separate_octets = re.compile(r"(\d+).(\d+).(\d+).(\d+)(\S+)")
+
 
 class UserInfo(Model):
     chat_id = CharField(max_length=64, primary_key=True)
@@ -35,8 +36,9 @@ bot = Bot(token=os.environ.get("BOT_TOKEN"))
 
 dp = Dispatcher(bot)
 
+
 async def check_sub():
-    os.chdir("TG-VPN-Payment")
+    
     stream = open("data.json")
     data = json.load(stream)
     kb = [
@@ -47,28 +49,40 @@ async def check_sub():
         if client_info["enable"] is False:
             continue
         
-        expiration_date = datetime.datetime.strptime(client_info["expiration_of_sub_date"], "%Y-%m-%d %H:%M:%S.%f")
+        expiration_date = datetime.datetime.strptime(
+            client_info["expiration_of_sub_date"],
+            "%Y-%m-%d %H:%M:%S.%f"
+        )
+
         now_date = datetime.datetime.now()
         delta_time = expiration_date - now_date
+
         if delta_time.days == 0:
-            await bot.send_message(chat_id=client_id, reply_markup=types.InlineKeyboardMarkup(inline_keyboard=kb),
-                             text="Ваша подписка скоро закончится, вы можете продлить ее нажав кнопку 'Продлить подписку'")
+            await bot.send_message(
+                chat_id=client_id,
+                reply_markup=types.InlineKeyboardMarkup(inline_keyboard=kb),
+                text="Ваша подписка скоро закончится, вы можете продлить ее нажав кнопку 'Продлить подписку'"
+            )
+
         elif delta_time.days < 0:
             data["clients"][client_id]["enable"] = False
-            await bot.send_message(chat_id=client_id, reply_markup=types.InlineKeyboardMarkup(inline_keyboard=kb),
-                             text="Ваша подписка закончилась, вы можете продлить ее нажав кнопку 'Продлить подписку'")
+
+            await bot.send_message(
+                chat_id=client_id,
+                reply_markup=types.InlineKeyboardMarkup(inline_keyboard=kb),
+                text="Ваша подписка закончилась, вы можете продлить ее нажав кнопку 'Продлить подписку'"
+            )
+
         else:
             continue
 
     stream.close()
 
     with open('data.json', 'w') as f:
-            json.dump(data, f, indent=4, ensure_ascii=False)
+        json.dump(data, f, indent=4, ensure_ascii=False)
             
     conf_file_formatter()
-    
-    os.chdir("/home/ivan")
-    
+
 
 def resub(chat_id: UserInfo.chat_id, resub_time_in_months: str):
     stream = open("data.json")
@@ -95,21 +109,21 @@ def conf_file_for_user(chat_id: UserInfo.chat_id):
     db_username_info: UserInfo = UserInfo.get(UserInfo.chat_id == chat_id)
     js_username_info = data["clients"][db_username_info.chat_id]
     
-    with open(f"WireGuard.conf", 'w') as file:
+    with open("WireGuard.conf", 'w') as file:
         user_private_key = js_username_info["privatekey"]
         user_address = js_username_info["address"]
-        file.write(f"[Interface]\n"
+        file.write("[Interface]\n"
                    f"Privatekey = {user_private_key}\n"
                    f"Address = {user_address}\n"
-                   f"DNS = 8.8.8.8\n\n")
+                   "DNS = 8.8.8.8\n\n")
         
         server_public_key = data["server"]["server_publickey"]
         server_end_point = data["server"]["server_end_point"]
-        file.write(f"[Peer]\n"
+        file.write("[Peer]\n"
                    f"PublicKey = {server_public_key}\n"
-                   f"AllowedIPs = 0.0.0.0/0\n"
+                   "AllowedIPs = 0.0.0.0/0\n"
                    f"Endpoint = {server_end_point}\n"
-                   f"PersistentKeepalive = 20")
+                   "PersistentKeepalive = 20")
         
     stream.close()
     
@@ -135,9 +149,9 @@ def conf_file_formatter():
                 client_name = client_info["first_name"]
                 
                 output_file.write(f"#{client_name}\n"
-                                f"[Peer]\n"
-                                f"Publickey = {server_pubkey}\n"
-                                f"AllowedIPs = {address}\n\n")
+                                  f"[Peer]\n"
+                                  f"Publickey = {server_pubkey}\n"
+                                  f"AllowedIPs = {address}\n\n")
             else:
                 continue
             
@@ -160,19 +174,21 @@ def json_formatter(chat_id: UserInfo.chat_id, duration_of_sub: str):
             expiration_date = created_at_time + datetime.timedelta(days=30 * int(duration_of_sub))
             
             id_last_client, info_last_client = list(data["clients"].items())[-1]
-            
-            temp_addr_array = re.split(regex_for_separate_octets, info_last_client["address"]) #parse full addr and concatenate last octet
+
+            # parse full addr and concatenate last octet
+            temp_addr_array = re.split(regex_for_separate_octets, info_last_client["address"])
             temp_addr_array[4] = (int(temp_addr_array[4]) + 1)
             address_for_user = f"{temp_addr_array[1]}.{temp_addr_array[2]}.{temp_addr_array[3]}.{temp_addr_array[4]}/32"
             
-            data["clients"].update({str(chat_id): {"first_name": username.first_name,
-                                              "address": address_for_user,
-                                              "publickey": pubkey.read().strip(),
-                                              "privatekey": f"{privkey.read().strip()}",
-                                              "created_at": f"{created_at_time}",
-                                              "expiration_of_sub_date" : f"{expiration_date}",
-                                              "enable": True
-                                              }})
+            data["clients"].update({str(chat_id): {
+                "first_name": username.first_name,
+                "address": address_for_user,
+                "publickey": pubkey.read().strip(),
+                "privatekey": privkey.read().strip(),
+                "created_at": str(created_at_time),
+                "expiration_of_sub_date": str(expiration_date),
+                "enable": True
+            }})
             
             os.remove(f"{privkey.name}")
             os.remove(f"{pubkey.name}")
@@ -181,13 +197,12 @@ def json_formatter(chat_id: UserInfo.chat_id, duration_of_sub: str):
         json.dump(data, f, indent=4, ensure_ascii=False)
     
 
-
 @dp.message_handler(Command("start"))
 async def cmd_start(message: types.Message):
     kb = [
         [types.InlineKeyboardButton("Купить подписку", callback_data="buy_sub")],
         [types.InlineKeyboardButton("Продлить подписку", callback_data="resub")],
-        [types.InlineKeyboardButton("Узнать продолжительность купленной подписки", callback_data="duration_sub")],
+        [types.InlineKeyboardButton("Узнать продолжительность купленной подписки", callback_data="duration")],
     ]
     
     UserInfo.get_or_create(chat_id=message.chat.id, defaults={"first_name": message.chat.first_name or "",
@@ -216,11 +231,14 @@ async def buy_sub_cmd(message: types.CallbackQuery):
 async def payment_cmd(message: types.CallbackQuery):
     kb = [
         [types.InlineKeyboardButton("Продлить подписку", callback_data="resub")],
-        [types.InlineKeyboardButton("Узнать продолжительность купленной подписки", callback_data="duration_sub")],
+        [types.InlineKeyboardButton("Узнать продолжительность купленной подписки", callback_data="duration")],
     ]
-    os.chdir("TG-VPN-Payment")
     duration_of_subscription = re.split(regex_for_digit, message.data)
-    await bot.edit_message_text(chat_id=message.message.chat.id, message_id=message.message.message_id, text="Сейчас все сделаю...")
+    await bot.edit_message_text(
+        chat_id=message.message.chat.id, 
+        message_id=message.message.message_id, 
+        text="Сейчас все сделаю..."
+    )
 
     json_formatter(message.message.chat.id, str(duration_of_subscription[1]))
     conf_file_for_user(message.message.chat.id)
@@ -231,23 +249,23 @@ async def payment_cmd(message: types.CallbackQuery):
         
         await bot.send_document(chat_id=message.message.chat.id, document=file)
                             
-        await bot.send_message(chat_id=message.message.chat.id, 
-                               reply_markup=types.InlineKeyboardMarkup(inline_keyboard=kb),
-                               text="Это ваш конфигурационный файл для WireGuard, чтобы его активировать, " 
-                                "нужно выбрать данный файл в приложении WireGuard в меню 'выбрать туннель'")
-    os.chdir("/home/ivan")
-
+        await bot.send_message(
+            chat_id=message.message.chat.id, 
+            reply_markup=types.InlineKeyboardMarkup(inline_keyboard=kb),
+            text="Это ваш конфигурационный файл для WireGuard, чтобы его активировать, " 
+            "нужно выбрать данный файл в приложении WireGuard в меню 'выбрать туннель'"
+        )
 
 
 @dp.callback_query_handler(text="rebuild_conf_file")
 async def rebuild_conf_cmd(message: types.CallbackQuery):
-    os.chdir("TG-VPN-Payment")
+    
     stream = open("data.json")
     data = json.load(stream)
     
     kb = [
         [types.InlineKeyboardButton("Продлить подписку", callback_data="resub")],
-        [types.InlineKeyboardButton("Узнать продолжительность купленной подписки", callback_data="duration_sub")],
+        [types.InlineKeyboardButton("Узнать продолжительность купленной подписки", callback_data="duration")],
     ]
 
     for client_id, client_info in data["clients"].items():
@@ -256,28 +274,71 @@ async def rebuild_conf_cmd(message: types.CallbackQuery):
         
         if client_info["enable"] is True:
             conf_file_for_user(message.message.chat.id)
+
             with open("WireGuard.conf", 'rb') as file:
                 await bot.delete_message(chat_id=message.message.chat.id, message_id=message.message.message_id)
             
                 await bot.send_document(chat_id=message.message.chat.id, document=file)
                                 
-                await bot.send_message(chat_id=message.message.chat.id, 
-                                       reply_markup=types.InlineKeyboardMarkup(inline_keyboard=kb),
-                                       text="Это ваш конфигурационный файл для WireGuard, чтобы его активировать, " 
-                                       "нужно выбрать данный файл в приложении WireGuard в меню 'выбрать туннель'")
+                await bot.send_message(
+                    chat_id=message.message.chat.id,
+                    reply_markup=types.InlineKeyboardMarkup(inline_keyboard=kb),
+                    text="Это ваш конфигурационный файл для WireGuard, чтобы его активировать, " 
+                    "нужно выбрать данный файл в приложении WireGuard в меню 'выбрать туннель'"
+                )
         else:
-            await bot.edit_message_text(chat_id=message.message.chat.id, message_id=message.message.message_id, 
-                                        text="К сожалению, ваша подписка кончилась!\n"
-                                        "Вы можете ее продлить с помощью кнопки 'Продлить продписку'!)",
-                                        reply_markup=types.InlineKeyboardMarkup(inline_keyboard=kb))
+            await bot.edit_message_text(
+                chat_id=message.message.chat.id,
+                message_id=message.message.message_id,
+                reply_markup=types.InlineKeyboardMarkup(inline_keyboard=kb),
+                text="К сожалению, ваша подписка кончилась!\n"
+                "Вы можете ее продлить с помощью кнопки 'Продлить продписку'!"
+            )
 
     stream.close()
 
     with open('data.json', 'w') as f:
         json.dump(data, f, indent=4, ensure_ascii=False)
         
-    os.chdir("/home/ivan")
 
+@dp.callback_query_handler(text="duration")
+async def duration_sub_cmd(message: types.CallbackQuery):
+    kb = [
+        [types.InlineKeyboardButton("Продлить подписку", callback_data="resub")],
+        [types.InlineKeyboardButton("Отправить конфигурационный файл", callback_data="rebuild_conf_file")],
+        [types.InlineKeyboardButton("Узнать продолжительность купленной подписки", callback_data="duration_sub")],
+    ]
+
+    stream = open("data.json")
+    data = json.load(stream)
+
+    for client_id, client_info in data["clients"].items():
+        if int(client_id) != message.message.chat.id:
+            continue
+
+        expiration_date = datetime.datetime.strptime(
+            client_info["expiration_of_sub_date"],
+            "%Y-%m-%d %H:%M:%S.%f"
+        )
+
+        now_date = datetime.datetime.now()
+        delta_time = expiration_date - now_date
+        if int(delta_time.days) > 0:
+            await bot.edit_message_text(
+                chat_id=message.message.chat.id,
+                message_id=message.message.message_id,
+                reply_markup=types.InlineKeyboardMarkup(inline_keyboard=kb),
+                text=f"До конца вашей подписки осталось {int(delta_time.days)} дней"
+            )
+        else:
+            await bot.edit_message_text(
+                chat_id=message.message.chat.id,
+                message_id=message.message.message_id,
+                reply_markup=types.InlineKeyboardMarkup(inline_keyboard=kb),
+                text=f"Ваша подписка закончилась! Вы можете продлить ее с помощью кнопки 'Продлить подписку'!"
+            )
+
+    stream.close()
 
 
 @dp.callback_query_handler(text="resub")
@@ -300,15 +361,16 @@ async def resub_payment(message: types.CallbackQuery):
         [types.InlineKeyboardButton("Отправить конфигурационный файл", callback_data="rebuild_conf_file")],
         [types.InlineKeyboardButton("Узнать продолжительность купленной подписки", callback_data="duration_sub")],
     ]
-    os.chdir("TG-VPN-Payment")
+    
     duration_of_subscription = re.split(regex_for_digit, message.data)
     
     resub(message.message.chat.id, duration_of_subscription[1])
-    await bot.edit_message_text(chat_id=message.message.chat.id, message_id=message.message.message_id,
-                                reply_markup=types.InlineKeyboardMarkup(inline_keyboard=kb),
-                                text="Вы успешно продлили подписку!\nВы можете использовать старый конфигурационный файл,"
-                                "если вы его утеряли, можете нажать кнопку 'Отправить конфигурационный файл'!")
-    os.chdir("/home/ivan")
+    await bot.edit_message_text(
+        chat_id=message.message.chat.id,
+        message_id=message.message.message_id,
+        reply_markup=types.InlineKeyboardMarkup(inline_keyboard=kb),
+        text="Вы успешно продлили подписку!\nВы можете использовать старый конфигурационный файл,"
+        "если вы его утеряли, можете нажать кнопку 'Отправить конфигурационный файл'!")
     
 
 async def main():
