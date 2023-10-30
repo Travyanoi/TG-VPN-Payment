@@ -9,6 +9,6 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         loop = asyncio.get_event_loop()
         try:
-            loop.run_until_complete(BotPolling())  # Запуск асинхронной функции BotPolling в цикле asyncio
+            loop.run_until_complete(BotPolling())
         finally:
             loop.close()
