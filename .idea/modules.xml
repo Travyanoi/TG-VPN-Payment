@@ -2,7 +2,7 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-      <module fileurl="file://$PROJECT_DIR$/.idea/TG-VPN-Payment.iml" filepath="$PROJECT_DIR$/.idea/TG-VPN-Payment.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/TG_VPN.iml" filepath="$PROJECT_DIR$/.idea/TG_VPN.iml" />
     </modules>
   </component>
 </project>
