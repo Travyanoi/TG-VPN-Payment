@@ -4,15 +4,15 @@ import datetime
 import subprocess
 import re
 
-import aiogram
 from aiogram.filters import Command
 from aiogram import Bot, Dispatcher, types, Router, F
 from aiogram.types import FSInputFile
 from dotenv import load_dotenv
+from wireguard_tools import WireguardKey
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
-from apps.bot.models import UserInfo
+from apps.bot.models import UserInfo, InfoForConfFile
 
 regex_for_digit = re.compile(r"(\d+)")
 regex_for_separate_octets = re.compile(r"(\d+).(\d+).(\d+).(\d+)(\S+)")
@@ -147,43 +147,31 @@ def conf_file_formatter():
     stream.close()
 
 
-def json_formatter(chat_id: UserInfo.chat_id, duration_of_sub: str):
-    data = json.load(open('data.json'))
+async def conf_db_formatter(chat_id: UserInfo.chat_id, duration_of_sub: str):
 
-    username: UserInfo = UserInfo.objects.get(UserInfo.chat_id == chat_id)
+    username: UserInfo = await UserInfo.objects.aget(chat_id=chat_id)
+    private_key = WireguardKey.generate()
+    public_key = private_key.public_key()
 
-    subprocess.check_output(f"wg genkey | tee {username.first_name}_privatekey |"
-                            f" wg pubkey | tee {username.first_name}_publickey",
-                            shell=True).decode("utf-8").strip()
+    start_at_time = datetime.datetime.now(tz=datetime.UTC)
 
-    with open(f"{username.first_name}_privatekey") as privkey:
-        with open(f"{username.first_name}_publickey") as pubkey:
-            created_at_time = datetime.datetime.now()
+    expiration_date = start_at_time + datetime.timedelta(days=30 * int(duration_of_sub))
 
-            expiration_date = created_at_time + datetime.timedelta(days=30 * int(duration_of_sub))
+    last_octet = await InfoForConfFile.objects.acount() + 1
+    address_for_user = f"10.0.0.{last_octet}/32"
 
-            id_last_client, info_last_client = list(data["clients"].items())[-1]
-
-            # parse full addr and concatenate last octet
-            temp_addr_array = re.split(regex_for_separate_octets, info_last_client["address"])
-            temp_addr_array[4] = (int(temp_addr_array[4]) + 1)
-            address_for_user = f"{temp_addr_array[1]}.{temp_addr_array[2]}.{temp_addr_array[3]}.{temp_addr_array[4]}/32"
-
-            data["clients"].update({str(chat_id): {
-                "first_name": username.first_name,
-                "address": address_for_user,
-                "publickey": pubkey.read().strip(),
-                "privatekey": privkey.read().strip(),
-                "created_at": str(created_at_time),
-                "expiration_of_sub_date": str(expiration_date),
-                "enable": True
-            }})
-
-            os.remove(f"{privkey.name}")
-            os.remove(f"{pubkey.name}")
-
-    with open('data.json', 'w') as json_file:
-        json.dump(data, json_file, indent=4, ensure_ascii=False)
+    await InfoForConfFile.objects.aget_or_create(
+        chat_id_id=username.chat_id,
+        defaults={
+            "first_name": username.first_name,
+            "address": address_for_user,
+            "publickey": public_key,
+            "privatekey": private_key,
+            "start_at": start_at_time,
+            "expires_at": expiration_date,
+            "enable": True,
+        }
+    )
 
 
 @router.message(Command("start"))
@@ -194,16 +182,20 @@ async def cmd_start(message: types.Message):
         [types.InlineKeyboardButton(text="Узнать продолжительность купленной подписки", callback_data="duration")],
     ]
 
-    await UserInfo.objects.aget_or_create(chat_id=message.chat.id, defaults={
-        "first_name": message.chat.first_name or "",
-        "last_name": message.chat.last_name or "",
-        "username": message.chat.username or ""
-    })
+    await UserInfo.objects.aget_or_create(
+        chat_id=message.chat.id,
+        defaults={
+            "first_name": message.chat.first_name or "",
+            "last_name": message.chat.last_name or "",
+            "username": message.chat.username or ""
+        }
+    )
 
     await bot.send_message(
         chat_id=message.chat.id,
         reply_markup=types.InlineKeyboardMarkup(inline_keyboard=kb),
-        text="Привет! Через данного бота у вас есть возможность приобрести VPN по низкой цене!")
+        text="Привет! Через данного бота у вас есть возможность приобрести VPN по низкой цене!"
+    )
 
 
 @router.callback_query(F.data == "buy_sub")
@@ -235,7 +227,7 @@ async def payment_cmd(message: types.CallbackQuery):
         text="Сейчас все сделаю..."
     )
 
-    json_formatter(message.message.chat.id, str(duration_of_subscription[1]))
+    await conf_db_formatter(message.message.chat.id, str(duration_of_subscription[1]))
     conf_file_for_user(message.message.chat.id)
     conf_file_formatter()
 
