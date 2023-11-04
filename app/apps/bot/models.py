@@ -1,12 +1,11 @@
 from django.db import models
-from django.db.models import CharField, DateTimeField, BooleanField
 
 
 class UserInfo(models.Model):
-    chat_id = CharField(max_length=64, primary_key=True)
-    first_name = CharField(max_length=32)
-    last_name = CharField(max_length=32, null=True)
-    username = CharField(max_length=32, null=True)
+    chat_id = models.CharField(max_length=64, primary_key=True)
+    first_name = models.CharField(max_length=32)
+    last_name = models.CharField(max_length=32, null=True)
+    username = models.CharField(max_length=32, null=True)
 
     class Meta:
         verbose_name = 'Пользователь'
@@ -17,17 +16,34 @@ class UserInfo(models.Model):
 
 
 class InfoForConfFile(models.Model):
-    chat_id = CharField(max_length=64, primary_key=True)
-    first_name = CharField(max_length=32)
-    publickey = CharField(max_length=44)
-    privatekey = CharField(max_length=44)
-    created_at = DateTimeField(default='')
-    expires_at = DateTimeField(default='')
-    enable = BooleanField(default=False)
+    chat_id = models.OneToOneField(UserInfo, on_delete=models.CASCADE, primary_key=True)
+    address = models.CharField(max_length=15, null=True)
+    first_name = models.CharField(max_length=32)
+    publickey = models.CharField(max_length=44)
+    privatekey = models.CharField(max_length=44)
+    created_at = models.DateTimeField(auto_now_add=True)
+    start_at = models.DateTimeField(null=True)
+    expires_at = models.DateTimeField(null=True)
+    enable = models.BooleanField(default=False)
 
     class Meta:
         verbose_name = 'Файл'
         verbose_name_plural = 'Файлы'
 
     def __str__(self):
-        return self.chat_id
+        return self.chat_id_id
+
+
+class ServerConfInfo(models.Model):
+    address = models.CharField(max_length=20, null=True)
+    server_end_point = models.CharField(max_length=20, null=True)
+    server_publickey = models.CharField(max_length=44, null=True)
+    server_privatekey = models.CharField(max_length=44, null=True)
+
+    class Meta:
+        verbose_name = 'Сервер'
+        verbose_name_plural = 'Сервера'
+
+    def __str__(self):
+        return f'ServerConfig {self.pk}'
+
