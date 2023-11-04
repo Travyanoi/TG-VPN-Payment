@@ -1,22 +1,22 @@
 import os
 import json
 import datetime
-import subprocess
 import re
+
+from io import BytesIO
 
 from aiogram.filters import Command
 from aiogram import Bot, Dispatcher, types, Router, F
-from aiogram.types import FSInputFile
+from aiogram.types import FSInputFile, BufferedInputFile
+
 from dotenv import load_dotenv
 from wireguard_tools import WireguardKey
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
-from apps.bot.models import UserInfo, InfoForConfFile
+from apps.bot.models import UserInfo, InfoForConfFile, ServerConfInfo
 
 regex_for_digit = re.compile(r"(\d+)")
-regex_for_separate_octets = re.compile(r"(\d+).(\d+).(\d+).(\d+)(\S+)")
-
 
 load_dotenv()
 
@@ -27,13 +27,23 @@ router = Router(name=__name__)
 dp = Dispatcher()
 
 
+
+async def send_conf_file(chat_id: UserInfo.chat_id, message_id: int):
+    byte_string = await conf_file_for_user(chat_id)
+
+    file = BufferedInputFile(file=byte_string.getvalue(), filename="WireGuard.conf")
+
+    await bot.delete_message(chat_id=chat_id, message_id=message_id)
+    await bot.send_document(chat_id=chat_id, document=file)
+
+
 async def check_sub():
     stream = open("data.json")
     data = json.load(stream)
     kb = [
         [types.InlineKeyboardButton(text="Продлить подписку", callback_data="resub")],
     ]
-
+    clients = await InfoForConfFile.objects.all()
     for client_id, client_info in data["clients"].items():
         if client_info["enable"] is False:
             continue
@@ -73,48 +83,35 @@ async def check_sub():
     conf_file_formatter()
 
 
-def resub(chat_id: UserInfo.chat_id, resub_time_in_months: str):
-    stream = open("data.json")
-    data = json.load(stream)
+async def resub(chat_id: UserInfo.chat_id, resub_time_in_months: str):
 
-    for client_id, client_info in data["clients"].items():
-        if client_id != str(chat_id):
-            continue
+    client: InfoForConfFile = await InfoForConfFile.objects.aget(chat_id=chat_id)
 
-        expiration_date = datetime.datetime.now() + datetime.timedelta(days=30 * int(resub_time_in_months))
-        client_info["expiration_of_sub_date"] = str(expiration_date)
-        client_info["enable"] = True
-
-    stream.close()
-
-    with open('data.json', 'w') as json_file:
-        json.dump(data, json_file, indent=4, ensure_ascii=False)
+    expiration_date = datetime.datetime.now(tz=datetime.UTC) + datetime.timedelta(days=30 * int(resub_time_in_months))
+    client.expires_at = expiration_date
+    client.enable = True
+    await client.asave()
 
 
-def conf_file_for_user(chat_id: UserInfo.chat_id):
-    stream = open('data.json')
-    data = json.load(stream)
+async def conf_file_for_user(chat_id: UserInfo.chat_id) -> BytesIO:
 
-    db_username_info: UserInfo = UserInfo.objects.get(UserInfo.chat_id == chat_id)
-    js_username_info = data["clients"][db_username_info.chat_id]
+    db_conf_info: InfoForConfFile = await InfoForConfFile.objects.aget(chat_id_id=chat_id)
+    db_server_info: ServerConfInfo = await ServerConfInfo.objects.afirst()
 
-    with open("WireGuard.conf", 'w') as file:
-        user_private_key = js_username_info["privatekey"]
-        user_address = js_username_info["address"]
-        file.write("[Interface]\n"
-                   f"Privatekey = {user_private_key}\n"
-                   f"Address = {user_address}\n"
-                   "DNS = 8.8.8.8\n\n")
+    file = BytesIO()
+    file.write(
+        "[Interface]\n"
+        f"Privatekey = {db_conf_info.privatekey}\n"
+        f"Address = {db_conf_info.address}\n"
+        "DNS = 8.8.8.8\n\n"
+        "[Peer]\n"
+        f"PublicKey = {db_server_info.server_publickey}\n"
+        "AllowedIPs = 0.0.0.0/0\n"
+        f"Endpoint = {db_server_info.server_end_point}\n"
+        "PersistentKeepalive = 20".encode('utf-8')
+    )
 
-        server_public_key = data["server"]["server_publickey"]
-        server_end_point = data["server"]["server_end_point"]
-        file.write("[Peer]\n"
-                   f"PublicKey = {server_public_key}\n"
-                   "AllowedIPs = 0.0.0.0/0\n"
-                   f"Endpoint = {server_end_point}\n"
-                   "PersistentKeepalive = 20")
-
-    stream.close()
+    return file
 
 
 def conf_file_formatter():
@@ -131,6 +128,8 @@ def conf_file_formatter():
                           f"ListenPort = 51830\n"
                           f"PostUp = /etc/wireguard/postup.sh\n"
                           f"PostDown = /etc/wireguard/postdown.sh\n\n")
+
+        clients = InfoForConfFile.objects.filter(enable=True).all
 
         for client_id, client_info in data["clients"].items():
             if client_info["enable"] is True:
@@ -157,7 +156,7 @@ async def conf_db_formatter(chat_id: UserInfo.chat_id, duration_of_sub: str):
 
     expiration_date = start_at_time + datetime.timedelta(days=30 * int(duration_of_sub))
 
-    last_octet = await InfoForConfFile.objects.acount() + 1
+    last_octet = await InfoForConfFile.objects.acount() + 2
     address_for_user = f"10.0.0.{last_octet}/32"
 
     await InfoForConfFile.objects.aget_or_create(
@@ -228,14 +227,8 @@ async def payment_cmd(message: types.CallbackQuery):
     )
 
     await conf_db_formatter(message.message.chat.id, str(duration_of_subscription[1]))
-    conf_file_for_user(message.message.chat.id)
-    conf_file_formatter()
-
-    file = FSInputFile("WireGuard.conf")
-
-    await bot.delete_message(chat_id=message.message.chat.id, message_id=message.message.message_id)
-
-    await bot.send_document(chat_id=message.message.chat.id, document=file)
+    #conf_file_formatter()
+    await send_conf_file(message.message.chat.id, message.message.message_id)
 
     await bot.send_message(
         chat_id=message.message.chat.id,
@@ -247,46 +240,31 @@ async def payment_cmd(message: types.CallbackQuery):
 
 @router.callback_query(F.data == "rebuild_conf_file")
 async def rebuild_conf_cmd(message: types.CallbackQuery):
-    stream = open("data.json")
-    data = json.load(stream)
 
     kb = [
         [types.InlineKeyboardButton(text="Продлить подписку", callback_data="resub")],
         [types.InlineKeyboardButton(text="Узнать продолжительность купленной подписки", callback_data="duration")],
     ]
 
-    for client_id, client_info in data["clients"].items():
-        if client_id != str(message.message.chat.id):
-            continue
+    client = await InfoForConfFile.objects.aget(chat_id=message.message.chat.id)
 
-        if client_info["enable"] is True:
-            conf_file_for_user(message.message.chat.id)
+    if client.enable is True:
+        await send_conf_file(message.message.chat.id, message.message.message_id)
 
-            file_rebuild = FSInputFile("WireGuard.conf")
-
-            await bot.delete_message(chat_id=message.message.chat.id, message_id=message.message.message_id)
-
-            await bot.send_document(chat_id=message.message.chat.id, document=file_rebuild)
-
-            await bot.send_message(
-                chat_id=message.message.chat.id,
-                reply_markup=types.InlineKeyboardMarkup(inline_keyboard=kb),
-                text="Это ваш конфигурационный файл для WireGuard, чтобы его активировать, "
-                     "нужно выбрать данный файл в приложении WireGuard в меню 'выбрать туннель'"
-            )
-        else:
-            await bot.edit_message_text(
-                chat_id=message.message.chat.id,
-                message_id=message.message.message_id,
-                reply_markup=types.InlineKeyboardMarkup(inline_keyboard=kb),
-                text="К сожалению, ваша подписка кончилась!\n"
-                     "Вы можете ее продлить с помощью кнопки 'Продлить продписку'!"
-            )
-
-    stream.close()
-
-    with open('data.json', 'w') as f:
-        json.dump(data, f, indent=4, ensure_ascii=False)
+        await bot.send_message(
+            chat_id=message.message.chat.id,
+            reply_markup=types.InlineKeyboardMarkup(inline_keyboard=kb),
+            text="Это ваш конфигурационный файл для WireGuard, чтобы его активировать, "
+                 "нужно выбрать данный файл в приложении WireGuard в меню 'выбрать туннель'"
+        )
+    else:
+        await bot.edit_message_text(
+            chat_id=message.message.chat.id,
+            message_id=message.message.message_id,
+            reply_markup=types.InlineKeyboardMarkup(inline_keyboard=kb),
+            text="К сожалению, ваша подписка кончилась!\n"
+                 "Вы можете ее продлить с помощью кнопки 'Продлить продписку'!"
+        )
 
 
 @router.callback_query(F.data == "duration")
@@ -297,36 +275,27 @@ async def duration_sub_cmd(message: types.CallbackQuery):
         [types.InlineKeyboardButton(text="Узнать продолжительность купленной подписки", callback_data="duration_sub")],
     ]
 
-    stream = open("data.json")
-    data = json.load(stream)
 
-    for client_id, client_info in data["clients"].items():
-        if int(client_id) != message.message.chat.id:
-            continue
+    client = await InfoForConfFile.objects.aget(chat_id=message.message.chat.id)
 
-        expiration_date = datetime.datetime.strptime(
-            client_info["expiration_of_sub_date"],
-            "%Y-%m-%d %H:%M:%S.%f"
+    expiration_date = client.expires_at
+
+    now_date = datetime.datetime.now(tz=datetime.UTC)
+    delta_time = expiration_date - now_date
+    if int(delta_time.days) > 0:
+        await bot.edit_message_text(
+            chat_id=message.message.chat.id,
+            message_id=message.message.message_id,
+            reply_markup=types.InlineKeyboardMarkup(inline_keyboard=kb),
+            text=f"До конца вашей подписки осталось {int(delta_time.days)} дней"
         )
-
-        now_date = datetime.datetime.now()
-        delta_time = expiration_date - now_date
-        if int(delta_time.days) > 0:
-            await bot.edit_message_text(
-                chat_id=message.message.chat.id,
-                message_id=message.message.message_id,
-                reply_markup=types.InlineKeyboardMarkup(inline_keyboard=kb),
-                text=f"До конца вашей подписки осталось {int(delta_time.days)} дней"
-            )
-        else:
-            await bot.edit_message_text(
-                chat_id=message.message.chat.id,
-                message_id=message.message.message_id,
-                reply_markup=types.InlineKeyboardMarkup(inline_keyboard=kb),
-                text="Ваша подписка закончилась! Вы можете продлить ее с помощью кнопки 'Продлить подписку'!"
-            )
-
-    stream.close()
+    else:
+        await bot.edit_message_text(
+            chat_id=message.message.chat.id,
+            message_id=message.message.message_id,
+            reply_markup=types.InlineKeyboardMarkup(inline_keyboard=kb),
+            text="Ваша подписка закончилась! Вы можете продлить ее с помощью кнопки 'Продлить подписку'!"
+        )
 
 
 @router.callback_query(F.data == "resub")
@@ -355,7 +324,7 @@ async def resub_payment(message: types.CallbackQuery):
 
     duration_of_subscription = re.split(regex_for_digit, message.data)
 
-    resub(message.message.chat.id, duration_of_subscription[1])
+    await resub(message.message.chat.id, duration_of_subscription[1])
     await bot.edit_message_text(
         chat_id=message.message.chat.id,
         message_id=message.message.message_id,
