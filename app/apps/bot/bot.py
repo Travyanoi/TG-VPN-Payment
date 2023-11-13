@@ -1,13 +1,13 @@
 import os
-import json
 import datetime
 import re
 
 from io import BytesIO
 
+from aiogram.enums import ParseMode
 from aiogram.filters import Command
 from aiogram import Bot, Dispatcher, types, Router, F
-from aiogram.types import FSInputFile, BufferedInputFile
+from aiogram.types import BufferedInputFile
 
 from dotenv import load_dotenv
 from wireguard_tools import WireguardKey
@@ -15,17 +15,15 @@ from wireguard_tools import WireguardKey
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
 from apps.bot.models import UserInfo, InfoForConfFile, ServerConfInfo
+from settings.settings import WG_CONF_ROOT, BOT_SECRET_TOKEN, WEBHOOK_PATH, TELEGRAM_SECRET_TOKEN
 
 regex_for_digit = re.compile(r"(\d+)")
 
-load_dotenv()
-
-bot = Bot(token=os.environ.get("BOT_TOKEN"))
+bot = Bot(token=BOT_SECRET_TOKEN, parse_mode=ParseMode.HTML)
 
 router = Router(name=__name__)
 
 dp = Dispatcher()
-
 
 
 async def send_conf_file(chat_id: UserInfo.chat_id, message_id: int):
@@ -36,51 +34,37 @@ async def send_conf_file(chat_id: UserInfo.chat_id, message_id: int):
     await bot.delete_message(chat_id=chat_id, message_id=message_id)
     await bot.send_document(chat_id=chat_id, document=file)
 
-
 async def check_sub():
-    stream = open("data.json")
-    data = json.load(stream)
     kb = [
         [types.InlineKeyboardButton(text="Продлить подписку", callback_data="resub")],
     ]
-    clients = await InfoForConfFile.objects.all()
-    for client_id, client_info in data["clients"].items():
-        if client_info["enable"] is False:
+
+    async for client_subscription in InfoForConfFile.objects.aiterator():
+        if not client_subscription.enable:
             continue
 
-        expiration_date = datetime.datetime.strptime(
-            client_info["expiration_of_sub_date"],
-            "%Y-%m-%d %H:%M:%S.%f"
-        )
-
-        now_date = datetime.datetime.now()
+        expiration_date = client_subscription.expires_at
+        now_date = datetime.datetime.now(tz=datetime.UTC)
         delta_time = expiration_date - now_date
 
         if delta_time.days == 0:
             await bot.send_message(
-                chat_id=client_id,
+                chat_id=client_subscription.client_id,
                 reply_markup=types.InlineKeyboardMarkup(inline_keyboard=kb),
                 text="Ваша подписка скоро закончится, вы можете продлить ее нажав кнопку 'Продлить подписку'"
             )
 
         elif delta_time.days < 0:
-            data["clients"][client_id]["enable"] = False
+            client_subscription.enable = False
+            await client_subscription.save()
 
             await bot.send_message(
-                chat_id=client_id,
+                chat_id=client_subscription.client_id,
                 reply_markup=types.InlineKeyboardMarkup(inline_keyboard=kb),
                 text="Ваша подписка закончилась, вы можете продлить ее нажав кнопку 'Продлить подписку'"
             )
 
-        else:
-            continue
-
-    stream.close()
-
-    with open('data.json', 'w') as json_file:
-        json.dump(data, json_file, indent=4, ensure_ascii=False)
-
-    conf_file_formatter()
+    await conf_file_formatter()
 
 
 async def resub(chat_id: UserInfo.chat_id, resub_time_in_months: str):
@@ -105,45 +89,35 @@ async def conf_file_for_user(chat_id: UserInfo.chat_id) -> BytesIO:
         f"Address = {db_conf_info.address}\n"
         "DNS = 8.8.8.8\n\n"
         "[Peer]\n"
-        f"PublicKey = {db_server_info.server_publickey}\n"
+        f"PublicKey = {db_server_info.publickey}\n"
         "AllowedIPs = 0.0.0.0/0\n"
-        f"Endpoint = {db_server_info.server_end_point}\n"
+        f"Endpoint = {db_server_info.end_point}\n"
         "PersistentKeepalive = 20".encode('utf-8')
     )
 
     return file
 
 
-def conf_file_formatter():
-    stream = open('data.json')
-    data = json.load(stream)
+async def conf_file_formatter():
 
-    with open("wg0.conf", 'w') as output_file:
-        server_privkey = data["server"]["server_privatekey"]
-        server_pubkey = data["server"]["server_publickey"]
+    with open(f"{WG_CONF_ROOT}\wg0.conf", 'w') as output_file:
+        server_data = await ServerConfInfo.objects.afirst()
 
         output_file.write(f"[Interface]\n"
-                          f"PrivateKey = {server_privkey}\n"
+                          f"PrivateKey = {server_data.privatekey}\n"
                           f"Address = 10.10.0.1/24\n"
                           f"ListenPort = 51830\n"
                           f"PostUp = /etc/wireguard/postup.sh\n"
                           f"PostDown = /etc/wireguard/postdown.sh\n\n")
 
-        clients = InfoForConfFile.objects.filter(enable=True).all
-
-        for client_id, client_info in data["clients"].items():
-            if client_info["enable"] is True:
-                address = client_info["address"]
-                client_name = client_info["first_name"]
-
-                output_file.write(f"#{client_name}\n"
-                                  f"[Peer]\n"
-                                  f"Publickey = {server_pubkey}\n"
-                                  f"AllowedIPs = {address}\n\n")
-            else:
+        async for client_info in InfoForConfFile.objects.aiterator():
+            if not client_info.enable:
                 continue
 
-    stream.close()
+            output_file.write(f"#{client_info.first_name.encode('utf-8').decode()}\n"
+                              f"[Peer]\n"
+                              f"Publickey = {client_info.publickey}\n"
+                              f"AllowedIPs = {client_info.address}\n\n")
 
 
 async def conf_db_formatter(chat_id: UserInfo.chat_id, duration_of_sub: str):
@@ -227,7 +201,7 @@ async def payment_cmd(message: types.CallbackQuery):
     )
 
     await conf_db_formatter(message.message.chat.id, str(duration_of_subscription[1]))
-    #conf_file_formatter()
+    await conf_file_formatter()
     await send_conf_file(message.message.chat.id, message.message.message_id)
 
     await bot.send_message(
@@ -333,10 +307,22 @@ async def resub_payment(message: types.CallbackQuery):
              "если вы его утеряли, можете нажать кнопку 'Отправить конфигурационный файл'!"
     )
 
+async def on_startup():
+    await bot.delete_webhook()
+
+    try:
+        await bot.set_webhook(url=f"{WEBHOOK_PATH}/webhook")
+
+        await bot.send_message(chat_id=5709145109, text='Бот запущен!')
+        await bot.send_message(chat_id=5709145109, text=f'Webhook зарегистрирован по адресу {WEBHOOK_PATH}/webhook')
+    except Exception as e:
+        await bot.send_message(chat_id=5709145109, text=f'Что-то поломалось брат\n{e}')
+
+
+dp.include_router(router)
 
 async def BotPolling():
-    scheduler = AsyncIOScheduler()
-    scheduler.add_job(check_sub, "interval", seconds=300)
-    scheduler.start()
-    dp.include_router(router)
-    await dp.start_polling(bot)
+    await bot.delete_webhook()
+    await bot.set_webhook(url=f"{WEBHOOK_PATH}/webhook/")
+    #dp.startup.register(on_startup)
+

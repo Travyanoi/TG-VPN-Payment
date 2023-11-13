@@ -36,9 +36,9 @@ class InfoForConfFile(models.Model):
 
 class ServerConfInfo(models.Model):
     address = models.CharField(max_length=20, null=True)
-    server_end_point = models.CharField(max_length=20, null=True)
-    server_publickey = models.CharField(max_length=44, null=True)
-    server_privatekey = models.CharField(max_length=44, null=True)
+    end_point = models.CharField(max_length=20, null=True)
+    publickey = models.CharField(max_length=44, null=True)
+    privatekey = models.CharField(max_length=44, null=True)
 
     class Meta:
         verbose_name = 'Сервер'

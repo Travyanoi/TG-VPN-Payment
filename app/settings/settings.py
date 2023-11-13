@@ -25,11 +25,13 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = 'django-insecure-9#r*6sn_@tvf*0vr-)4q=@e()=2z)#jzzqc04#p$seb$&v!a*m'
-
+BOT_SECRET_TOKEN = os.environ.get('BOT_TOKEN')
+WEBHOOK_PATH = os.environ.get('WEBHOOK_PATH')
+TELEGRAM_SECRET_TOKEN = os.environ.get('TELEGRAM_SECRET_TOKEN')
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['*']
 
 
 # Application definition
@@ -52,6 +54,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'apps.bot.middleware.ValidateTelegramTokenMiddleware'
 ]
 
 ROOT_URLCONF = 'settings.urls'
@@ -137,3 +140,6 @@ STATIC_URL = 'static/'
 # https://docs.djangoproject.com/en/4.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+#Custom directories
+WG_CONF_ROOT = os.path.join(BASE_DIR, 'conf_wg')
