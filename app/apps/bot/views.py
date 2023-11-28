@@ -5,16 +5,12 @@ from .bot import *
 
 
 @csrf_exempt
-async def webhook(request):
-    up = json.loads(request.body)
-    update_id = up.get('update_id')
-    message = up.get('message')
-    callback_query = up.get('callback_query')
+def webhook(request):
+    json_str = request.body.decode('UTF-8')
+    update = telebot.types.Update.de_json(json_str)
+    try:
+        bot.process_new_updates([update])
+    except Exception as e:
+        print(e)
 
-    my_update = types.update.Update(
-        update_id=update_id,
-        message=message if message is not None else None,
-        callback_query=callback_query if callback_query is not None else None
-    )
-    await dp.feed_update(bot=bot, update=my_update)
-    return JsonResponse({'status': 'ok'})
+    return JsonResponse({'status':'ok'})
