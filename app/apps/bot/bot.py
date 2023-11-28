@@ -6,7 +6,9 @@ from io import BytesIO
 
 from wireguard_tools import WireguardKey
 
+from apps.bot.keyboards import global_kb
 from apps.bot.models import UserInfo, InfoForConfFile, ServerConfInfo
+from apps.bot.templates import *
 from settings.settings import WG_CONF_ROOT, BOT_SECRET_TOKEN, WEBHOOK_PATH, TELEGRAM_SECRET_TOKEN
 
 regex_for_digit = re.compile(r"(\d+)")
@@ -21,37 +23,33 @@ def send_conf_file(chat_id: UserInfo.chat_id, message_id: int):
     bot.delete_message(chat_id=chat_id, message_id=message_id)
     bot.send_document(chat_id=chat_id, document=byte_string, visible_file_name="WireGuard.conf")
 
-# async def check_sub():
-#     kb = [
-#         [types.InlineKeyboardButton(text="Продлить подписку", callback_data="resub")],
-#     ]
+# def check_sub():
+#     kb = [global_kb[1]]
 #
-#     async for client_subscription in InfoForConfFile.objects.aiterator():
-#         if not client_subscription.enable:
-#             continue
+#     for client_subscription in InfoForConfFile.objects.filter(enable=True)
 #
 #         expiration_date = client_subscription.expires_at
 #         now_date = datetime.datetime.now(tz=datetime.UTC)
 #         delta_time = expiration_date - now_date
 #
 #         if delta_time.days == 0:
-#             await bot.send_message(
+#             bot.send_message(
 #                 chat_id=client_subscription.client_id,
 #                 reply_markup=types.InlineKeyboardMarkup(inline_keyboard=kb),
-#                 text="Ваша подписка скоро закончится, вы можете продлить ее нажав кнопку 'Продлить подписку'"
+#                 text=soon_sub_expired_text
 #             )
 #
 #         elif delta_time.days < 0:
 #             client_subscription.enable = False
-#             await client_subscription.save()
+#             client_subscription.save()
 #
-#             await bot.send_message(
+#             bot.send_message(
 #                 chat_id=client_subscription.client_id,
 #                 reply_markup=types.InlineKeyboardMarkup(inline_keyboard=kb),
-#                 text="Ваша подписка закончилась, вы можете продлить ее нажав кнопку 'Продлить подписку'"
+#                 text=sub_expired_text
 #             )
 #
-#     await conf_file_formatter()
+#     conf_file_formatter()
 #
 #
 def resub(chat_id: UserInfo.chat_id, resub_time_in_months: str):
@@ -134,12 +132,7 @@ def conf_db_formatter(chat_id: UserInfo.chat_id, duration_of_sub: str):
 
 @bot.message_handler(commands=['start'])
 def cmd_start(message: telebot.types.Message):
-    kb = [
-        [telebot.types.InlineKeyboardButton(text="Купить подписку", callback_data="buy_sub")],
-        [telebot.types.InlineKeyboardButton(text="Продлить подписку", callback_data="resub")],
-        [telebot.types.InlineKeyboardButton(text="Узнать продолжительность купленной подписки", callback_data="duration")],
-    ]
-
+    kb= [global_kb[0]] + [global_kb[1]] + [global_kb[2]]
     UserInfo.objects.get_or_create(
         chat_id=message.chat.id,
         defaults={
@@ -152,18 +145,13 @@ def cmd_start(message: telebot.types.Message):
     bot.send_message(
         chat_id=message.chat.id,
         reply_markup=telebot.types.InlineKeyboardMarkup(keyboard=kb),
-        text="Привет! Через данного бота у вас есть возможность приобрести VPN по низкой цене!"
+        text=greetings_text
     )
 
 
 @bot.callback_query_handler(func=lambda call: call.data == 'buy_sub')
 def buy_sub_cmd(message: telebot.types.CallbackQuery):
-    kb = [
-        [telebot.types.InlineKeyboardButton(text="1 Месяц", callback_data="1_month_sub")],
-        [telebot.types.InlineKeyboardButton(text="4 Месяца", callback_data="4_month_sub")],
-        [telebot.types.InlineKeyboardButton(text="6 Месяцев", callback_data="6_month_sub")],
-        [telebot.types.InlineKeyboardButton(text="12 Месяцев", callback_data="12_month_sub")],
-    ]
+    kb = [global_kb[3]] + [global_kb[4]] + [global_kb[5]] + [global_kb[6]]
     bot.edit_message_text(
         chat_id=message.message.chat.id,
         message_id=message.message.message_id,
@@ -174,10 +162,7 @@ def buy_sub_cmd(message: telebot.types.CallbackQuery):
 
 @bot.callback_query_handler(func=lambda call: call.data.endswith('_month_sub'))
 def payment_cmd(message: telebot.types.CallbackQuery):
-    kb = [
-        [telebot.types.InlineKeyboardButton(text="Продлить подписку", callback_data="resub")],
-        [telebot.types.InlineKeyboardButton(text="Узнать продолжительность купленной подписки", callback_data="duration")],
-    ]
+    kb= [global_kb[1]] + [global_kb[2]]
 
     bot.edit_message_text(
         chat_id=message.message.chat.id,
@@ -194,18 +179,14 @@ def payment_cmd(message: telebot.types.CallbackQuery):
     bot.send_message(
         chat_id=message.message.chat.id,
         reply_markup=telebot.types.InlineKeyboardMarkup(keyboard=kb),
-        text="Это ваш конфигурационный файл для WireGuard, чтобы его активировать, "
-             "нужно выбрать данный файл в приложении WireGuard в меню 'выбрать туннель'"
+        text=conf_file_text
     )
 
 
 @bot.callback_query_handler(func=lambda call: call.data == "rebuild_conf_file")
 def rebuild_conf_cmd(message: telebot.types.CallbackQuery):
 
-    kb = [
-        [telebot.types.InlineKeyboardButton(text="Продлить подписку", callback_data="resub")],
-        [telebot.types.InlineKeyboardButton(text="Узнать продолжительность купленной подписки", callback_data="duration")],
-    ]
+    kb= [global_kb[0]] + [global_kb[2]]
 
     client = InfoForConfFile.objects.get(chat_id=message.message.chat.id)
 
@@ -215,27 +196,20 @@ def rebuild_conf_cmd(message: telebot.types.CallbackQuery):
         bot.send_message(
             chat_id=message.message.chat.id,
             reply_markup=telebot.types.InlineKeyboardMarkup(keyboard=kb),
-            text="Это ваш конфигурационный файл для WireGuard, чтобы его активировать, "
-                 "нужно выбрать данный файл в приложении WireGuard в меню 'выбрать туннель'"
+            text=conf_file_text
         )
     else:
         bot.edit_message_text(
             chat_id=message.message.chat.id,
             message_id=message.message.message_id,
             reply_markup=telebot.types.InlineKeyboardMarkup(keyboard=kb),
-            text="К сожалению, ваша подписка кончилась!\n"
-                 "Вы можете ее продлить с помощью кнопки 'Продлить продписку'!"
+            text=sub_expired_text
         )
 
 
 @bot.callback_query_handler(func=lambda call: call.data == "duration")
 def duration_sub_cmd(message: telebot.types.CallbackQuery):
-    kb = [
-        [telebot.types.InlineKeyboardButton(text="Продлить подписку", callback_data="resub")],
-        [telebot.types.InlineKeyboardButton(text="Отправить конфигурационный файл", callback_data="rebuild_conf_file")],
-        [telebot.types.InlineKeyboardButton(text="Узнать продолжительность купленной подписки", callback_data="duration")],
-    ]
-
+    kb = [global_kb[1]] + [global_kb[11]] + [global_kb[2]]
 
     client = InfoForConfFile.objects.get(chat_id=message.message.chat.id)
 
@@ -255,33 +229,24 @@ def duration_sub_cmd(message: telebot.types.CallbackQuery):
             chat_id=message.message.chat.id,
             message_id=message.message.message_id,
             reply_markup=telebot.types.InlineKeyboardMarkup(keyboard=kb),
-            text="Ваша подписка закончилась! Вы можете продлить ее с помощью кнопки 'Продлить подписку'!"
+            text=sub_expired_text
         )
 
 
 @bot.callback_query_handler(func=lambda call: call.data == "resub")
 def resub_cmd(message: telebot.types.CallbackQuery):
-    kb = [
-        [telebot.types.InlineKeyboardButton(text="1 Месяц", callback_data="1_month_resub")],
-        [telebot.types.InlineKeyboardButton(text="4 Месяца", callback_data="4_month_resub")],
-        [telebot.types.InlineKeyboardButton(text="6 Месяцев", callback_data="6_month_resub")],
-        [telebot.types.InlineKeyboardButton(text="12 Месяцев", callback_data="12_month_resub")],
-    ]
+    kb = [global_kb[7]] + [global_kb[8]] + [global_kb[9]] + [global_kb[10]]
     bot.edit_message_text(
         chat_id=message.message.chat.id,
         message_id=message.message.message_id,
         reply_markup=telebot.types.InlineKeyboardMarkup(keyboard=kb),
-        text="Пожалуйста, выберите продолжительность продления подписки!"
+        text=choose_duration_of_sub_text
     )
 
 
 @bot.callback_query_handler(func=lambda call: call.data.endswith("_month_resub"))
 def resub_payment(message: telebot.types.CallbackQuery):
-    kb = [
-        [telebot.types.InlineKeyboardButton(text="Продлить подписку", callback_data="resub")],
-        [telebot.types.InlineKeyboardButton(text="Отправить конфигурационный файл", callback_data="rebuild_conf_file")],
-        [telebot.types.InlineKeyboardButton(text="Узнать продолжительность купленной подписки", callback_data="duration")],
-    ]
+    kb = [global_kb[1]] + [global_kb[11]] + [global_kb[2]]
 
     duration_of_subscription = re.split(regex_for_digit, message.data)
 
@@ -290,8 +255,7 @@ def resub_payment(message: telebot.types.CallbackQuery):
         chat_id=message.message.chat.id,
         message_id=message.message.message_id,
         reply_markup=telebot.types.InlineKeyboardMarkup(keyboard=kb),
-        text="Вы успешно продлили подписку!\nВы можете использовать старый конфигурационный файл,"
-             "если вы его утеряли, можете нажать кнопку 'Отправить конфигурационный файл'!"
+        text=successful_resub_text
     )
 
 
