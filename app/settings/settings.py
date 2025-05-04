@@ -10,7 +10,10 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/4.2/ref/settings/
 """
 import os
+import sys
 from pathlib import Path
+
+import structlog
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -28,6 +31,11 @@ SECRET_KEY = 'django-insecure-9#r*6sn_@tvf*0vr-)4q=@e()=2z)#jzzqc04#p$seb$&v!a*m
 BOT_SECRET_TOKEN = os.environ.get('BOT_TOKEN')
 WEBHOOK_PATH = os.environ.get('WEBHOOK_PATH')
 TELEGRAM_SECRET_TOKEN = os.environ.get('TELEGRAM_SECRET_TOKEN')
+SHOP_SECRET_KEY = os.environ.get('SHOP_SECRET_KEY')
+SHOP_ID = os.environ.get('SHOP_ID')
+REDIS_PASS = os.environ.get('REDIS_PASS')
+
+
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
@@ -43,7 +51,10 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    'apps.bot'
+    'rest_framework',
+    'apps.bot',
+    "apps.shop",
+    "apps.core"
 ]
 
 MIDDLEWARE = [
@@ -88,15 +99,21 @@ db_engine = {
     'sqlite': 'django.db.backends.sqlite3',
     'mysql': 'django.db.backends.mysql',
 }
-
+# TODO Delete alter choise
 DATABASES = {
     "default": {
-        'NAME': os.getenv('DB_NAME', 'hacks'),
+        'NAME': os.getenv('DB_NAME', 'Database'),
         'HOST': os.getenv('DB_HOST', 'localhost'),
         'PORT': os.getenv('DB_PORT', ''),
-        'USER': os.getenv('DB_USER', 'postgres'),
+        'USER': os.getenv('DB_USER', 'ivan'),
         'ENGINE': db_engine[os.getenv('DB_ENGINE', 'postgres')],
         'PASSWORD': os.getenv('DB_PASS', ''),
+    },
+    "redis": {
+        'HOST': 'localhost',
+        'PORT': 6379,
+        'PASSWORD': os.getenv('REDIS_PASS', "Amogus"),
+        'DB': 0,
     }
 }
 
@@ -141,5 +158,61 @@ STATIC_URL = 'static/'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-#Custom directories
+# Custom directories
 WG_CONF_ROOT = os.path.join(BASE_DIR, 'conf_wg')
+
+# Logging
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'filters': {
+        'require_debug_true': {
+            '()': 'django.utils.log.RequireDebugTrue',
+        }
+    },
+    'formatters': {
+        'json': {
+            '()': structlog.stdlib.ProcessorFormatter,
+            'processor': structlog.processors.JSONRenderer(),
+        },
+        'console': {
+            '()': structlog.stdlib.ProcessorFormatter,
+            'processor': structlog.dev.ConsoleRenderer(),
+        },
+    },
+    'handlers': {
+        'console_debug': {
+            'class': 'logging.StreamHandler',
+            'level': 'DEBUG',
+            'formatter': 'console',
+            'filters': ['require_debug_true'],
+            'stream': sys.stdout
+        },
+        'console': {
+            'class': 'logging.StreamHandler',
+            'formatter': 'console',
+            'level': 'INFO',
+            'stream': sys.stdout
+        },
+    },
+    'loggers': {
+        '': {
+            'level': 'DEBUG' if DEBUG else 'INFO',
+            'handlers': ['console_debug'] if DEBUG else ['console'],
+        },
+        'django.db.backends': {
+            'level': 'DEBUG',
+            'handlers': ['console_debug'],
+        },
+        'django.request': {
+            'handlers': ['console'],
+            'level': 'ERROR',
+            'propagate': True,
+        },
+        'django': {
+            'handlers': ['console'],
+            'level': 'ERROR',
+            'propagate': False,
+        },
+    },
+}

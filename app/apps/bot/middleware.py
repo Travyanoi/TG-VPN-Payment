@@ -13,7 +13,7 @@ class ValidateTelegramTokenMiddleware:
         if request.path == WEBHOOK_PATH:
             header_token = request.META.get('HTTP_X_TELEGRAM_BOT_API_SECRET_TOKEN')
             if header_token is None or header_token != self.SECRET_TOKEN:
-                #logger.warning(f"Попытка взлома, неправильный токен, ip={request.META.get('REMOTE_ADDR')}")
+                logger.warning(f"Попытка взлома, неправильный токен, ip={request.META.get('REMOTE_ADDR')}")
                 print(f"Попытка взлома, неправильный токен, ip={request.META.get('REMOTE_ADDR')}")
                 return JsonResponse({'error': 'Invalid Token'}, status=403)
         return self.get_response(request)

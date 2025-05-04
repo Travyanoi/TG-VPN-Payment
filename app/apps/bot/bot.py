@@ -1,18 +1,22 @@
-import telebot
 import datetime
+import logging
 import re
-
 from io import BytesIO
 
+import telebot
+from telebot.types import InlineKeyboardButton
 from wireguard_tools import WireguardKey
 
 from apps.bot.keyboards import global_kb
 from apps.bot.models import UserInfo, InfoForConfFile, ServerConfInfo
 from apps.bot.templates import *
+from apps.shop.models import PriceDuration, Purchase
 from settings.settings import WG_CONF_ROOT, BOT_SECRET_TOKEN, WEBHOOK_PATH, TELEGRAM_SECRET_TOKEN
 
 regex_for_digit = re.compile(r"(\d+)")
 bot = telebot.TeleBot(BOT_SECRET_TOKEN)
+
+logger = logging.getLogger("telebot")
 
 
 def send_conf_file(chat_id: UserInfo.chat_id, message_id: int):
@@ -22,6 +26,7 @@ def send_conf_file(chat_id: UserInfo.chat_id, message_id: int):
 
     bot.delete_message(chat_id=chat_id, message_id=message_id)
     bot.send_document(chat_id=chat_id, document=byte_string, visible_file_name="WireGuard.conf")
+
 
 # def check_sub():
 #     kb = [global_kb[1]]
@@ -50,20 +55,23 @@ def send_conf_file(chat_id: UserInfo.chat_id, message_id: int):
 #             )
 #
 #     conf_file_formatter()
-#
-#
-def resub(chat_id: UserInfo.chat_id, resub_time_in_months: str):
 
+
+def resub(chat_id: UserInfo.chat_id, resub_time_in_months: int):
     client: InfoForConfFile = InfoForConfFile.objects.get(chat_id=chat_id)
+    resub_duration = datetime.timedelta(days=30 * int(resub_time_in_months))
 
-    expiration_date = datetime.datetime.now(tz=datetime.UTC) + datetime.timedelta(days=30 * int(resub_time_in_months))
-    client.expires_at = expiration_date
+    if client.enable:
+        client.expires_at = client.expires_at + resub_duration
+    else:
+        current_time = datetime.datetime.now(tz=datetime.UTC)
+        client.expires_at = current_time + resub_duration
+
     client.enable = True
     client.save()
 
 
 def conf_file_for_user(chat_id: UserInfo.chat_id) -> BytesIO:
-
     db_conf_info: InfoForConfFile = InfoForConfFile.objects.get(chat_id_id=chat_id)
     db_server_info: ServerConfInfo = ServerConfInfo.objects.first()
 
@@ -84,8 +92,7 @@ def conf_file_for_user(chat_id: UserInfo.chat_id) -> BytesIO:
 
 
 def conf_file_formatter():
-
-    with open(f"{WG_CONF_ROOT}\wg0.conf", 'w') as output_file:
+    with open(f"{WG_CONF_ROOT}\\wg0.conf", 'w') as output_file:
         server_data = ServerConfInfo.objects.first()
 
         output_file.write(f"[Interface]\n"
@@ -96,15 +103,13 @@ def conf_file_formatter():
                           f"PostDown = /etc/wireguard/postdown.sh\n\n")
 
         for client_info in InfoForConfFile.objects.filter(enable=True):
-
-            output_file.write(f"#{client_info.first_name.encode('utf-8').decode()}\n"
+            output_file.write(f"#{client_info.chat_id_id}\n"
                               f"[Peer]\n"
                               f"Publickey = {client_info.publickey}\n"
                               f"AllowedIPs = {client_info.address}\n\n")
 
 
-def conf_db_formatter(chat_id: UserInfo.chat_id, duration_of_sub: str):
-
+def conf_db_formatter(chat_id: UserInfo.chat_id, duration_of_sub: int):
     username: UserInfo = UserInfo.objects.get(chat_id=chat_id)
     private_key = WireguardKey.generate()
     public_key = private_key.public_key()
@@ -116,7 +121,7 @@ def conf_db_formatter(chat_id: UserInfo.chat_id, duration_of_sub: str):
     last_octet = InfoForConfFile.objects.count() + 2
     address_for_user = f"10.0.0.{last_octet}/32"
 
-    InfoForConfFile.objects.get_or_create(
+    instance, created = InfoForConfFile.objects.get_or_create(
         chat_id_id=username.chat_id,
         defaults={
             "first_name": username.first_name,
@@ -129,10 +134,13 @@ def conf_db_formatter(chat_id: UserInfo.chat_id, duration_of_sub: str):
         }
     )
 
+    if not created:
+        resub(chat_id, duration_of_sub)
+
 
 @bot.message_handler(commands=['start'])
 def cmd_start(message: telebot.types.Message):
-    kb= [global_kb[0]] + [global_kb[1]] + [global_kb[2]]
+    kb = [global_kb[0]] + [global_kb[1]] + [global_kb[2]]
     UserInfo.objects.get_or_create(
         chat_id=message.chat.id,
         defaults={
@@ -149,9 +157,17 @@ def cmd_start(message: telebot.types.Message):
     )
 
 
+def build_kb(data: list[tuple[str]]):
+    return [
+        [InlineKeyboardButton(text=kb_item[2], callback_data=f"{str(kb_item[0])}_id_purchase")]
+        for kb_item in data
+    ]
+
+
 @bot.callback_query_handler(func=lambda call: call.data == 'buy_sub')
 def buy_sub_cmd(message: telebot.types.CallbackQuery):
-    kb = [global_kb[3]] + [global_kb[4]] + [global_kb[5]] + [global_kb[6]]
+    data = PriceDuration.objects.values_list("id", "duration", "name")
+    kb = build_kb(data)
     bot.edit_message_text(
         chat_id=message.message.chat.id,
         message_id=message.message.message_id,
@@ -160,33 +176,39 @@ def buy_sub_cmd(message: telebot.types.CallbackQuery):
     )
 
 
-@bot.callback_query_handler(func=lambda call: call.data.endswith('_month_sub'))
+@bot.callback_query_handler(func=lambda call: call.data.endswith('_id_purchase'))
 def payment_cmd(message: telebot.types.CallbackQuery):
-    kb= [global_kb[1]] + [global_kb[2]]
+    kb = [global_kb[1]] + [global_kb[2]]
+    price_duration_object = PriceDuration.objects.get(id=message.data.split("_")[0])
+    purchase = Purchase.objects.create(
+        user_id=message.message.chat.id,
+        price_duration_id=price_duration_object.id,
+        amount=price_duration_object.amount,
+        product_id=price_duration_object.product.id,
+    )
 
     bot.edit_message_text(
         chat_id=message.message.chat.id,
         message_id=message.message.message_id,
         text="Сейчас все сделаю..."
     )
-
-    duration_of_subscription = re.split(regex_for_digit, message.data)
-
-    conf_db_formatter(message.message.chat.id, str(duration_of_subscription[1]))
-    conf_file_formatter()
-    send_conf_file(message.message.chat.id, message.message.message_id)
-
-    bot.send_message(
-        chat_id=message.message.chat.id,
-        reply_markup=telebot.types.InlineKeyboardMarkup(keyboard=kb),
-        text=conf_file_text
-    )
+    #
+    # duration_of_subscription = re.split(regex_for_digit, message.data)
+    #
+    # conf_db_formatter(message.message.chat.id, int(duration_of_subscription[1]))
+    # conf_file_formatter()
+    # send_conf_file(message.message.chat.id, message.message.message_id)
+    #
+    # bot.send_message(
+    #     chat_id=message.message.chat.id,
+    #     reply_markup=telebot.types.InlineKeyboardMarkup(keyboard=kb),
+    #     text=conf_file_text
+    # )
 
 
 @bot.callback_query_handler(func=lambda call: call.data == "rebuild_conf_file")
 def rebuild_conf_cmd(message: telebot.types.CallbackQuery):
-
-    kb= [global_kb[0]] + [global_kb[2]]
+    kb = [global_kb[0]] + [global_kb[2]]
 
     client = InfoForConfFile.objects.get(chat_id=message.message.chat.id)
 
@@ -250,7 +272,7 @@ def resub_payment(message: telebot.types.CallbackQuery):
 
     duration_of_subscription = re.split(regex_for_digit, message.data)
 
-    resub(message.message.chat.id, duration_of_subscription[1])
+    resub(message.message.chat.id, int(duration_of_subscription[1]))
     bot.edit_message_text(
         chat_id=message.message.chat.id,
         message_id=message.message.message_id,
@@ -259,8 +281,8 @@ def resub_payment(message: telebot.types.CallbackQuery):
     )
 
 
-def BotPolling():
+def bot_polling():
     # Удаление предыдущего вебхука, если он был настроен
     bot.remove_webhook()
     # Установка нового вебхука
-    bot.set_webhook(url=f"{WEBHOOK_PATH}/webhook/")
+    bot.set_webhook(url=f"{WEBHOOK_PATH}/webhook/", secret_token=TELEGRAM_SECRET_TOKEN)
