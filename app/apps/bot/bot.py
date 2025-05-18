@@ -19,15 +19,6 @@ bot = telebot.TeleBot(BOT_SECRET_TOKEN)
 logger = logging.getLogger("telebot")
 
 
-def send_conf_file(chat_id: UserInfo.chat_id, message_id: int):
-    byte_string = conf_file_for_user(chat_id)
-
-    byte_string.seek(0)
-
-    bot.delete_message(chat_id=chat_id, message_id=message_id)
-    bot.send_document(chat_id=chat_id, document=byte_string, visible_file_name="WireGuard.conf")
-
-
 # def check_sub():
 #     kb = [global_kb[1]]
 #
@@ -71,26 +62,6 @@ def resub(chat_id: UserInfo.chat_id, resub_time_in_months: int):
     client.save()
 
 
-def conf_file_for_user(chat_id: UserInfo.chat_id) -> BytesIO:
-    db_conf_info: InfoForConfFile = InfoForConfFile.objects.get(chat_id_id=chat_id)
-    db_server_info: ServerConfInfo = ServerConfInfo.objects.first()
-
-    file = BytesIO()
-    file.write(
-        "[Interface]\n"
-        f"Privatekey = {db_conf_info.privatekey}\n"
-        f"Address = {db_conf_info.address}\n"
-        "DNS = 8.8.8.8\n\n"
-        "[Peer]\n"
-        f"PublicKey = {db_server_info.publickey}\n"
-        "AllowedIPs = 0.0.0.0/0\n"
-        f"Endpoint = {db_server_info.end_point}\n"
-        "PersistentKeepalive = 20".encode('utf-8')
-    )
-
-    return file
-
-
 def conf_file_formatter():
     with open(f"{WG_CONF_ROOT}\\wg0.conf", 'w') as output_file:
         server_data = ServerConfInfo.objects.first()
@@ -118,6 +89,10 @@ def conf_db_formatter(chat_id: UserInfo.chat_id, duration_of_sub: int):
 
     expiration_date = start_at_time + datetime.timedelta(days=30 * int(duration_of_sub))
 
+    # TODO """
+    #  считать общее количество записей на конкретном сервере(server_id) и делить на 255
+    #  для определения подсетки
+
     last_octet = InfoForConfFile.objects.count() + 2
     address_for_user = f"10.0.0.{last_octet}/32"
 
@@ -134,13 +109,13 @@ def conf_db_formatter(chat_id: UserInfo.chat_id, duration_of_sub: int):
         }
     )
 
-    if not created:
-        resub(chat_id, duration_of_sub)
+    return instance, created
 
 
 @bot.message_handler(commands=['start'])
 def cmd_start(message: telebot.types.Message):
     kb = [global_kb[0]] + [global_kb[1]] + [global_kb[2]]
+
     UserInfo.objects.get_or_create(
         chat_id=message.chat.id,
         defaults={
@@ -192,10 +167,14 @@ def payment_cmd(message: telebot.types.CallbackQuery):
         message_id=message.message.message_id,
         text="Сейчас все сделаю..."
     )
-    #
-    # duration_of_subscription = re.split(regex_for_digit, message.data)
-    #
-    # conf_db_formatter(message.message.chat.id, int(duration_of_subscription[1]))
+
+    duration_of_subscription = re.split(regex_for_digit, message.data)
+
+    instance, created = conf_db_formatter(message.message.chat.id, int(duration_of_subscription[1]))
+
+    if not created:
+        resub(message.message.chat.id, int(duration_of_subscription[1]))
+
     # conf_file_formatter()
     # send_conf_file(message.message.chat.id, message.message.message_id)
     #
@@ -206,6 +185,7 @@ def payment_cmd(message: telebot.types.CallbackQuery):
     # )
 
 
+# TODO тут скорее всего должна быть прослойка с выбором конкретного сервера из возможных, если их несколько
 @bot.callback_query_handler(func=lambda call: call.data == "rebuild_conf_file")
 def rebuild_conf_cmd(message: telebot.types.CallbackQuery):
     kb = [global_kb[0]] + [global_kb[2]]
@@ -213,7 +193,13 @@ def rebuild_conf_cmd(message: telebot.types.CallbackQuery):
     client = InfoForConfFile.objects.get(chat_id=message.message.chat.id)
 
     if client.enable is True:
-        send_conf_file(message.message.chat.id, message.message.message_id)
+        # TODO Обращение к юзкейсу
+        byte_string = conf_file_for_user(chat_id)
+
+        byte_string.seek(0)
+
+        bot.delete_message(chat_id=message.message.chat.id, message_id=message.message.message_id)
+        bot.send_document(chat_id=message.message.chat.id, document=byte_string, visible_file_name="")
 
         bot.send_message(
             chat_id=message.message.chat.id,
