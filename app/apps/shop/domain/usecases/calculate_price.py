@@ -3,6 +3,7 @@ from decimal import Decimal, ROUND_HALF_UP
 from typing import Optional
 
 from apps.core.domain.usecases.base import BaseUseCaseInputDTO, BaseUseCase, BaseUseCaseOutputDTO
+from apps.shop.domain.price_duration import PriceDurationEntity
 from apps.shop.repositories.discount import DiscountRepository
 from apps.shop.repositories.product import ProductRepository
 
@@ -13,6 +14,16 @@ class PriceDurationInputDTO(BaseUseCaseInputDTO):
     duration: int
     currency: str
     discount_id: Optional[int]
+
+    @classmethod
+    def from_entity(cls, entity: 'PriceDurationEntity'):
+        return cls(
+            pk=entity.pk,
+            product_id=entity.product_id,
+            duration=entity.duration,
+            currency=entity.currency,
+            discount_id=entity.discount_id,
+        )
 
 
 class CalculateProductPriceOutputDTO(BaseUseCaseOutputDTO):

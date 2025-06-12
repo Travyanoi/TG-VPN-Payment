@@ -1,10 +1,14 @@
 import logging
+from uuid import UUID
 
 from django.http import JsonResponse
 from rest_framework.exceptions import ValidationError, NotFound
 
+from apps.bot.repositories.user_info import UserInfoRepository
 from apps.core.redis_mutex import RedisMutex
+from apps.shop.domain.usecases.create_payment import CreatePaymentInputDTO, CreatePaymentUseCase
 from apps.shop.models import Payment
+from apps.shop.repositories.purchase import PurchaseRepository
 from settings.settings import SHOP_ID, SHOP_SECRET_KEY
 
 from yookassa import Configuration, Payment as YooKassaPayment
@@ -24,13 +28,12 @@ class YooKassa:
         'error': 6
     }
 
-    def __init__(self, purchase, user, request, pay_system):
-        self.pay_system = pay_system
-        self.purchase = purchase
-        self.pay_id = purchase and self.purchase.pk
-        self.description = purchase and purchase.buy_desc
-        self.user = user
-        self.request = request
+    def __init__(self, purchase_id, chat_id, pay_system_id):
+        self.pay_system_id = pay_system_id
+        self.purchase_entity = PurchaseRepository().get_by_id(purchase_id)
+        self.pay_id = purchase_id
+        self.user_entity = UserInfoRepository().get_by_chat_id(chat_id)
+        self.log = UserInfoRepository().log
         self.return_url = "https://t.me/vpntest1231bot"
 
     def serialize(self, purchase):
@@ -38,7 +41,7 @@ class YooKassa:
             "pay_id": self.pay_id,
             "amount": purchase.amount,
             "currency": purchase.currency,
-            "description": self.description,
+            # "description": self.description,
         }
         logging.info(payload)
         return payload
@@ -46,30 +49,28 @@ class YooKassa:
     def create_payment(self):
         yokassa_payment = YooKassaPayment.create({
             "amount": {
-                "value": f"{self.purchase.amount}",
-                "currency": f"{self.purchase.currency}"
+                "value": f"{self.purchase_entity.amount}",
+                "currency": f"{self.purchase_entity.currency}"
             },
             "confirmation": {
                 "type": "redirect",
                 "return_url": f"{self.return_url}"
             },
             "capture": True,
-            "description": f"{self.purchase.buy_desc}"
-        }, self.purchase.token)
+            "description": f"{self.purchase_entity.buy_descr}"
+        }, self.purchase_entity.token)
 
         try:
-            payment = Payment(
-                user=self.user,
-                pay_system=self.pay_system,
-                status_code=self.status_map.get("waiting"),
-                ip=self.request.META.get("HTTP_CF_CONNECTING_IP") or self.request.META.get(
-                    'HTTP_X_REAL_IP') or self.request.META.get('REMOTE_ADDR'),
-                purchase=self.purchase,
-                internal_id=self.purchase.token
+            payment_input_dto = CreatePaymentInputDTO(
+                purchase_id=self.purchase_entity.pk,
+                pay_system_id=self.pay_system_id,
             )
-            payment.save()
-            self.user.log(
-                f"create_payment {self.purchase.id} {self.purchase} {self.purchase.funds} {self.user.currency}"
+            payment_output_dto = CreatePaymentUseCase().execute(payment_input_dto)
+
+            self.log(
+                chat_id=self.user_entity.chat_id,
+                text=f"create payment: id = {payment_output_dto.payment_id} "
+                     f"purchase id = {self.purchase_entity.pk}, currency = {self.purchase_entity.currency}"
             )
 
             return {
@@ -85,10 +86,14 @@ class YooKassa:
         if 'id' not in data_object:
             raise NotFound("Data object has not id field")
 
-        with RedisMutex().acquire_lock(f"id_{data_object['id']}"):
-            payment = Payment.objects.filter(internal_id=data_object['id']).first()
+        internal_id = UUID(data_object['id']).hex
+
+        with RedisMutex().acquire_lock(f"id_{internal_id}"):
+            payment = Payment.objects.filter(internal_id=internal_id).first()
             if not payment:
                 logging.error(data)
                 raise NotFound("Payment не найден")
+
+            # TODO обновить payment до статуса внутри data, если success, тогда создаем подписку
 
             return JsonResponse({'status': 'ok'})

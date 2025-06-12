@@ -25,6 +25,8 @@ class Purchase(models.Model):
 
     created_date = models.DateTimeField("Дата создания", auto_now_add=True)
 
+    buy_descr = models.CharField("Описание покупки", max_length=100)
+
     token = models.CharField("Внутренний ID", max_length=64, default=generate_md5_token, unique=True)
 
     class Meta:

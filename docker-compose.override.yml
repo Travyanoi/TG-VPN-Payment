@@ -20,3 +20,14 @@ services:
     volumes:
       - ./volumes/redis:/data
     restart: always
+
+  rabbitmq:
+    image: rabbitmq:3.13.1-management
+    volumes:
+      - ./volumes/rabbitmq:/var/lib/rabbitmq/mnesia
+      - ./config/rabbitmq/rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf
+      - ./config/rabbitmq/definitions.json:/etc/rabbitmq/definitions.json
+    ports:
+      - "5672:5672"
+      - "15672"
+      - "15692"

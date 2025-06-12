@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Optional, List
 
 from apps.shop.models import Product
 from apps.shop.domain.product import ProductEntity
@@ -6,10 +6,17 @@ from apps.bot.repositories.base import BaseRepository
 
 
 class ProductRepository(BaseRepository[ProductEntity]):
-    def get_by_id(self, pk: int) -> ProductEntity | None:
+    def get_by_id(self, pk: int) -> Optional['ProductEntity']:
         try:
             instance = Product.objects.get(pk=pk)
             return ProductEntity.from_model(instance)
+        except Product.DoesNotExist:
+            return None
+
+    def all(self) -> Optional[List['ProductEntity']]:
+        try:
+            instances = Product.objects.all()
+            return [ProductEntity.from_model(instance) for instance in instances]
         except Product.DoesNotExist:
             return None
 

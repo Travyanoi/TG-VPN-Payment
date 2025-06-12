@@ -9,9 +9,9 @@ from apps.core.models import LogEntry
 class UserInfoRepository(BaseRepository[UserInfoEntity]):
     def get_by_chat_id(self, chat_id: str) -> Optional[UserInfoEntity]:
         try:
-            instance = UserInfoEntity.objects.get(user=chat_id)
+            instance = UserInfo.objects.get(chat_id=chat_id)
             return UserInfoEntity.from_model(instance)
-        except UserInfoEntity.DoesNotExist:
+        except UserInfo.DoesNotExist:
             return None
 
     def exists(self, chat_id: str) -> Optional[bool]:
@@ -22,7 +22,7 @@ class UserInfoRepository(BaseRepository[UserInfoEntity]):
         return UserInfoEntity.from_model(instance)
 
     # TODO тут нужно сделать ретерн и обработку ексепшн, если запись не сохранилась
-    def save(self, entity: 'UserInfoEntity') -> None:
+    def save(self, entity: 'UserInfoEntity') -> UserInfoEntity:
         instance, _ = UserInfo.objects.update_or_create(
             chat_id=entity.chat_id,
             defaults={
@@ -36,10 +36,9 @@ class UserInfoRepository(BaseRepository[UserInfoEntity]):
     def delete(self, entity: 'UserInfoEntity') -> None:
         UserInfo.objects.filter(chat_id=entity.chat_id).delete()
 
-    # TODO тут скорее всего нужно передать просто chat_id юзера, зач модель целую
-    def log(self, instance: UserInfo, text: str, detail=None, level=0):
+    def log(self, chat_id: str, text: str, detail=None, level=0):
         LogEntry.objects.create(
-            user=instance.chat_id,
+            user_id=chat_id,
             text=text,
             detail=detail,
             level=level

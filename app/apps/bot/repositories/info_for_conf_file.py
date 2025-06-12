@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Optional, List
 
 from apps.bot.domain.info_for_conf_file import InfoForConfFileEntity
 from apps.bot.models.info_for_conf_file import InfoForConfFile
@@ -6,12 +6,18 @@ from apps.bot.repositories.base import BaseRepository
 
 
 class InfoForConfFileRepository(BaseRepository[InfoForConfFileEntity]):
-    def get_by_user_id(self, chat_id: str, server_id: int) -> Optional[InfoForConfFileEntity]:
+    def get_by_user_server_id(self, chat_id: str, server_id: int) -> Optional[InfoForConfFileEntity]:
+        if not chat_id or not server_id:
+            return None
         try:
             instance = InfoForConfFile.objects.get(user=chat_id, server=server_id)
             return InfoForConfFileEntity.from_model(instance)
         except InfoForConfFile.DoesNotExist:
             return None
+
+    def get_by_server_id(self, server_id: int) -> List[InfoForConfFileEntity]:
+        instances = InfoForConfFile.objects.filter(server_id=server_id)
+        return [InfoForConfFileEntity.from_model(instance) for instance in instances]
 
     def create(self, **kwargs) -> InfoForConfFileEntity:
         instance = InfoForConfFile.objects.create(**kwargs)

@@ -8,6 +8,7 @@ if TYPE_CHECKING:
 
 class ServerConfInfoEntity(BaseModel):
     pk: int
+    product_id: int
     name: Optional[str]
     address: Optional[str]
     end_point: Optional[str]
@@ -20,6 +21,7 @@ class ServerConfInfoEntity(BaseModel):
     def from_model(cls, instance: 'ServerConfInfo') -> 'ServerConfInfoEntity':
         return cls(
             pk=instance.pk,
+            product_id=instance.product.pk,
             name=instance.name,
             address=instance.address,
             end_point=instance.end_point,

@@ -1,22 +1,31 @@
 import datetime
 import logging
 import re
-from io import BytesIO
 
+import structlog
 import telebot
+from telebot.apihelper import ApiTelegramException
 from telebot.types import InlineKeyboardButton
-from wireguard_tools import WireguardKey
 
+from apps.bot.domain.usecases.create_conf_file_for_user import CreateConfigFileForUserUseCase, InfoForConfFileInputDTO
+from apps.bot.exception_handler import MyExceptionHandler
 from apps.bot.keyboards import global_kb
 from apps.bot.models import UserInfo, InfoForConfFile, ServerConfInfo
+from apps.bot.repositories.info_for_conf_file import InfoForConfFileRepository
+from apps.bot.repositories.server_conf_info import ServerConfInfoRepository
 from apps.bot.templates import *
+from apps.shop.domain.usecases.create_payment import CreatePaymentInputDTO, CreatePaymentUseCase
+from apps.shop.domain.usecases.create_purchase import CreatePurchaseUseCase, CreatePurchaseInputDTO
 from apps.shop.models import PriceDuration, Purchase
+from apps.shop.repositories.pay_system import PaySystemRepository
+from apps.shop.repositories.price_duration import PriceDurationRepository
+from apps.shop.repositories.product import ProductRepository
 from settings.settings import WG_CONF_ROOT, BOT_SECRET_TOKEN, WEBHOOK_PATH, TELEGRAM_SECRET_TOKEN
 
 regex_for_digit = re.compile(r"(\d+)")
-bot = telebot.TeleBot(BOT_SECRET_TOKEN)
+bot = telebot.TeleBot(BOT_SECRET_TOKEN, exception_handler=MyExceptionHandler())
 
-logger = logging.getLogger("telebot")
+logger = structlog.getLogger("bot.bot")
 
 
 # def check_sub():
@@ -80,42 +89,43 @@ def conf_file_formatter():
                               f"AllowedIPs = {client_info.address}\n\n")
 
 
-def conf_db_formatter(chat_id: UserInfo.chat_id, duration_of_sub: int):
-    username: UserInfo = UserInfo.objects.get(chat_id=chat_id)
-    private_key = WireguardKey.generate()
-    public_key = private_key.public_key()
-
-    start_at_time = datetime.datetime.now(tz=datetime.UTC)
-
-    expiration_date = start_at_time + datetime.timedelta(days=30 * int(duration_of_sub))
-
-    # TODO """
-    #  считать общее количество записей на конкретном сервере(server_id) и делить на 255
-    #  для определения подсетки
-
-    last_octet = InfoForConfFile.objects.count() + 2
-    address_for_user = f"10.0.0.{last_octet}/32"
-
-    instance, created = InfoForConfFile.objects.get_or_create(
-        chat_id_id=username.chat_id,
-        defaults={
-            "first_name": username.first_name,
-            "address": address_for_user,
-            "publickey": public_key,
-            "privatekey": private_key,
-            "start_at": start_at_time,
-            "expires_at": expiration_date,
-            "enable": True,
-        }
-    )
-
-    return instance, created
+# def conf_db_formatter(chat_id: UserInfo.chat_id, duration_of_sub: int):
+#     username: UserInfo = UserInfo.objects.get(chat_id=chat_id)
+#     private_key = WireguardKey.generate()
+#     public_key = private_key.public_key()
+#
+#     start_at_time = datetime.datetime.now(tz=datetime.UTC)
+#
+#     expiration_date = start_at_time + datetime.timedelta(days=30 * int(duration_of_sub))
+#
+#     # TODO """
+#     #  считать общее количество записей на конкретном сервере(server_id) и делить на 255
+#     #  для определения подсетки
+#
+#     last_octet = InfoForConfFile.objects.count() + 2
+#     address_for_user = f"10.0.0.{last_octet}/32"
+#
+#     instance, created = InfoForConfFile.objects.get_or_create(
+#         chat_id_id=username.chat_id,
+#         defaults={
+#             "first_name": username.first_name,
+#             "address": address_for_user,
+#             "publickey": public_key,
+#             "privatekey": private_key,
+#             "start_at": start_at_time,
+#             "expires_at": expiration_date,
+#             "enable": True,
+#         }
+#     )
+#
+#   return instance, created
 
 
 @bot.message_handler(commands=['start'])
 def cmd_start(message: telebot.types.Message):
     kb = [global_kb[0]] + [global_kb[1]] + [global_kb[2]]
 
+    # TODO репозиторий
     UserInfo.objects.get_or_create(
         chat_id=message.chat.id,
         defaults={
@@ -141,15 +151,134 @@ def build_kb(data: list[tuple[str]]):
 
 @bot.callback_query_handler(func=lambda call: call.data == 'buy_sub')
 def buy_sub_cmd(message: telebot.types.CallbackQuery):
-    data = PriceDuration.objects.values_list("id", "duration", "name")
-    kb = build_kb(data)
+    # data = PriceDuration.objects.values_list("id", "duration", "name")
+    kb = []
+    products = ProductRepository().all()
+    for product in products:
+        kb.append([InlineKeyboardButton(
+            text=f"{product.name} - {product.base_price} Руб в месяц",
+            callback_data=f"{str(product.pk)}_product"
+        )])
     bot.edit_message_text(
         chat_id=message.message.chat.id,
         message_id=message.message.message_id,
         reply_markup=telebot.types.InlineKeyboardMarkup(keyboard=kb),
-        text="Пожалуйста, выберите продолжительность подписки!"
+        text="Выберите страну, в которой желаете получить VPN"
     )
 
+
+@bot.callback_query_handler(func=lambda call: call.data.endswith("_product"))
+def buy_sub_cmd(message: telebot.types.CallbackQuery):
+    kb = []
+    product_id = message.data.split("_")[0]
+    servers = ServerConfInfoRepository().get_by_product_id(int(product_id))
+    for server in servers:
+        kb.append([InlineKeyboardButton(text=server.name, callback_data=f"{product_id}_{str(server.pk)}_server")])
+    bot.edit_message_text(
+        chat_id=message.message.chat.id,
+        message_id=message.message.message_id,
+        reply_markup=telebot.types.InlineKeyboardMarkup(keyboard=kb),
+        text="Выберите сервер, на котором желаете получить VPN"
+    )
+
+
+@bot.callback_query_handler(func=lambda call: call.data.endswith("_server"))
+def buy_sub_cmd(message: telebot.types.CallbackQuery):
+    kb = []
+    split_data = message.data.split("_")
+    product_id = split_data[0]
+    server_id = split_data[1]
+
+    price_durations = PriceDurationRepository().get_by_product_id(product_id=int(product_id))
+    for duration in price_durations:
+        kb.append([
+            InlineKeyboardButton(
+                text=f"{duration.duration} дней",
+                callback_data=f"{duration.pk}_{product_id}_{server_id}_duration")
+        ])
+
+    bot.edit_message_text(
+        chat_id=message.message.chat.id,
+        message_id=message.message.message_id,
+        reply_markup=telebot.types.InlineKeyboardMarkup(keyboard=kb),
+        text="Выберите длительности подписки!"
+    )
+
+
+@bot.callback_query_handler(func=lambda call: call.data.endswith("_duration"))
+def buy_sub_cmd(message: telebot.types.CallbackQuery):
+    kb = []
+
+    server_id = message.data.split("_")[-2]
+
+    conf_file_entity = InfoForConfFileRepository().get_by_user_server_id(
+        chat_id=str(message.message.chat.id),
+        server_id=int(server_id)
+    )
+    conf_file_dto = InfoForConfFileInputDTO.from_entity(conf_file_entity)
+
+    byte_string = CreateConfigFileForUserUseCase().execute(conf_file_dto)
+
+    bot.delete_message(chat_id=message.message.chat.id, message_id=message.message.message_id)
+    try:
+        bot.send_document(
+            chat_id=message.message.chat.id,
+            document=byte_string,
+            visible_file_name=f"{message.message.chat.id}.conf"
+        )
+    except ApiTelegramException as tele_exc:
+        logger.error("Telegram API exception", exc_info=True, detail=str(tele_exc))
+        bot.send_message(
+            chat_id=message.message.chat.id,
+            text="Произошла ошибка, обратитесь в поддержку!"
+        )
+
+    bot.send_message(
+        chat_id=message.message.chat.id,
+        reply_markup=telebot.types.InlineKeyboardMarkup(keyboard=kb),
+        text=conf_file_text
+    )
+
+    pay_systems = PaySystemRepository().all()
+    for pay_system in pay_systems:
+        callback = f"{pay_system.pk}_{"_".join(message.data.split("_")[:-1])}_paysystem"
+        kb.append([
+            InlineKeyboardButton(
+                text=pay_system.name,
+                callback_data=callback)
+        ])
+
+    bot.edit_message_text(
+        chat_id=message.message.chat.id,
+        message_id=message.message.message_id,
+        reply_markup=telebot.types.InlineKeyboardMarkup(keyboard=kb),
+        text="Выберите способ оплаты!"
+    )
+
+
+@bot.callback_query_handler(func=lambda call: call.data.endswith("_paysystem"))
+def buy_sub_cmd(message: telebot.types.CallbackQuery):
+    kb = []
+    pay_system_id, duration_id, product_id, server_id, _ = message.data.split("_")
+    purchase_input_dto = CreatePurchaseInputDTO(
+        user_id=str(message.message.chat.id),
+        price_duration_id=duration_id,
+        product_id=product_id
+    )
+    purchase_output_dto = CreatePurchaseUseCase().execute(purchase_input_dto)
+    paysystem_entity = PaySystemRepository().get_by_id(pay_system_id)
+    payment_class = paysystem_entity.get_class()
+    payment_class_obj = payment_class(purchase_output_dto.purchase_id, message.message.chat.id, pay_system_id)
+    payment_dict = payment_class_obj.create_payment()
+
+    kb.append([InlineKeyboardButton(text="Ссылка на оплату", url=payment_dict.get("payment_url"))])
+
+    bot.edit_message_text(
+        chat_id=message.message.chat.id,
+        message_id=message.message.message_id,
+        reply_markup=telebot.types.InlineKeyboardMarkup(keyboard=kb),
+        text="Ссылка на оплату ниже, после оплаты вам придет файл"
+    )
 
 @bot.callback_query_handler(func=lambda call: call.data.endswith('_id_purchase'))
 def payment_cmd(message: telebot.types.CallbackQuery):

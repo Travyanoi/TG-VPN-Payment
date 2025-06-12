@@ -1,7 +1,8 @@
-from rest_framework.exceptions import ValidationError
+from rest_framework.exceptions import ValidationError, NotFound
 from rest_framework.views import APIView
 
-from apps.shop.models import PaySystem
+from apps.shop.repositories.pay_system import PaySystemRepository
+from apps.shop.services.resolve_pay_system_handler import ResolvePaySystemHandlerService
 
 
 class PaymentHookView(APIView):
@@ -15,12 +16,18 @@ class PaymentHookView(APIView):
         data = request.data
 
         if not data:
-            raise ValidationError("no data")
+            raise ValidationError("Request doesn't contains a data")
 
-        # TODO Uebat' 404 response + logger if payment_system is None
-        payment_system = PaySystem.objects.filter(class_name__iexact=class_name).first()
+        payment_system = PaySystemRepository().get_by_class_name(class_name=class_name)
 
-        cls = payment_system.get_class()
-        cls_obj = cls(None, None, request, payment_system)
+        if not payment_system:
+            raise NotFound(f"PaySystem with class name [{class_name}] not found")
+
+        try:
+            cls = ResolvePaySystemHandlerService.resolve_paysystem_handler(class_name)
+        except AttributeError:
+            raise NotFound(f"Handler class for [{class_name}] not found")
+
+        cls_obj = cls(None, None, payment_system.pk)
 
         return cls_obj.payment_hook(request)

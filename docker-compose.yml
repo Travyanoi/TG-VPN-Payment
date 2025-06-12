@@ -2,6 +2,8 @@ version: '3.9'
 
 x-container: &container
   restart: always
+  env_file:
+    - .env
   logging:
     options:
       max-size: "200k"
@@ -29,3 +31,27 @@ services:
       - "6379"
     volumes:
       - ./volumes/redis:/data
+
+  rabbitmq:
+    <<: *container
+    image: rabbitmq:3.13.1-management
+    volumes:
+      - ./volumes/rabbitmq:/var/lib/rabbitmq/mnesia
+      - ./config/rabbitmq/rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf
+      - ./config/rabbitmq/definitions.json:/etc/rabbitmq/definitions.json
+    ports:
+      - "5672:5672"
+      - "15672"
+      - "15692"
+
+  celery:
+    <<: *container
+    build:
+      context: .
+    command: celery -A settings worker -l info --prefetch-multiplier=1 -Q default -E
+
+  celerybeat:
+    <<: *container
+    build:
+      context: .
+    command: celery -A settings beat -l info

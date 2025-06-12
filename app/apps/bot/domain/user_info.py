@@ -1,3 +1,5 @@
+from typing import Optional
+
 from pydantic import BaseModel
 
 from apps.bot.models import UserInfo
@@ -6,8 +8,8 @@ from apps.bot.models import UserInfo
 class UserInfoEntity(BaseModel):
     chat_id: str
     first_name: str
-    last_name: str
-    username: str
+    last_name: Optional[str]
+    username: Optional[str]
 
     @classmethod
     def from_model(cls, instance: 'UserInfo') -> 'UserInfoEntity':

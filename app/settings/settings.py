@@ -16,6 +16,8 @@ from pathlib import Path
 import structlog
 from dotenv import load_dotenv
 
+from settings.logs import configure_logger
+
 load_dotenv()
 
 
@@ -39,29 +41,43 @@ REDIS_PASS = os.environ.get('REDIS_PASS')
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
+if DEBUG:
+    environment = 'debug'
+else:
+    environment = 'production'
+
 ALLOWED_HOSTS = ['*']
 
 
 # Application definition
 
-INSTALLED_APPS = [
+DJANGO_APPS = [
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+]
+
+EXTERNAL_APPS = [
     'rest_framework',
+    'django_celery_beat',
+]
+
+MY_APPS = [
     'apps.bot',
     "apps.shop",
-    "apps.core"
+    'apps.core',
 ]
+
+INSTALLED_APPS = DJANGO_APPS + EXTERNAL_APPS + MY_APPS
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
-    'django.middleware.csrf.CsrfViewMiddleware',
+    # 'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
@@ -216,3 +232,5 @@ LOGGING = {
         },
     },
 }
+
+configure_logger(log_level='DEBUG' if DEBUG else 'INFO', env_profile=environment)

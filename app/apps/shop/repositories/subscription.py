@@ -1,19 +1,38 @@
+from abc import ABC
+from typing import Optional
+
 from django.utils import timezone
 
+from apps.bot.repositories.base import BaseRepository
+from apps.shop.domain.subscription import SubscriptionEntity
 from apps.shop.models import Subscription
 
 
-class SubscriptionRepository:
-    def get_user_active(self, user_id: str):
-        return Subscription.objects.filter(
-            user_id=user_id,
-            expired_date__gt=timezone.now()
-        )
+class SubscriptionRepository(BaseRepository[SubscriptionEntity]):
+    def get_by_id(self, pk: int) -> Optional['SubscriptionEntity']:
+        try:
+            instance = Subscription.objects.get(pk=pk)
+            return SubscriptionEntity.from_model(instance)
+        except Subscription.DoesNotExist:
+            return None
 
-    def create_or_update(self, user, product, start_date, expired_date) -> Subscription:
-        obj, _ = Subscription.objects.update_or_create(
-            user=user,
-            product=product,
-            defaults=dict(start_date=start_date, expired_date=expired_date)
+    def create(self, **kwargs) -> SubscriptionEntity:
+        instance = Subscription.objects.create(**kwargs)
+        return SubscriptionEntity.from_model(instance)
+
+    def save(self, entity: 'SubscriptionEntity') -> 'SubscriptionEntity':
+        instance, _ = Subscription.objects.update_or_create(
+            pk=entity.pk,
+            defaults={
+                "user_id": entity.user_id,
+                "product_id": entity.product_id,
+                "purchase_id": entity.purchase_id,
+                "expires_at": entity.expires_at,
+                "is_active": entity.is_active,
+                "updated_at": entity.updated_at,
+            }
         )
-        return obj
+        return SubscriptionEntity.from_model(instance)
+
+    def delete(self, entity: 'SubscriptionEntity') -> None:
+        Subscription.objects.filter(pk=entity.pk).delete()

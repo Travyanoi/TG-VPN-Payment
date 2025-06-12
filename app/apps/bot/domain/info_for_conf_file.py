@@ -8,8 +8,8 @@ if TYPE_CHECKING:
 
 class InfoForConfFileEntity(BaseModel):
     pk: int
-    user: str
-    server: int
+    user_id: str
+    server_id: int
     address: Optional[str]
     publickey: str
     privatekey: str
@@ -19,8 +19,8 @@ class InfoForConfFileEntity(BaseModel):
     def from_model(cls, instance: 'InfoForConfFile') -> 'InfoForConfFileEntity':
         return cls(
             pk=instance.pk,
-            user=instance.user,
-            server=instance.server,
+            user_id=instance.user.chat_id,
+            server_id=instance.server.pk,
             address=instance.address,
             publickey=instance.publickey,
             privatekey=instance.privatekey,

@@ -12,7 +12,8 @@ class Payment(models.Model):
 
     user = models.ForeignKey("bot.UserInfo", related_name="payments", on_delete=models.CASCADE, null=True)
 
-    purchase = models.ForeignKey(Purchase, verbose_name="Покупка", related_name="payments", on_delete=models.CASCADE)
+    purchase = models.ForeignKey("shop.Purchase", verbose_name="Покупка", related_name="payments",
+                                 on_delete=models.CASCADE)
     pay_system = models.ForeignKey(
         "shop.PaySystem",
         verbose_name="Платежные системы",
@@ -42,5 +43,6 @@ class Payment(models.Model):
         indexes = [
             models.Index(fields=['id', 'status_code']),
         ]
+        unique_together = ["pay_system_id", "internal_id"]
         verbose_name = "Платеж"
         verbose_name_plural = "Платежи"
