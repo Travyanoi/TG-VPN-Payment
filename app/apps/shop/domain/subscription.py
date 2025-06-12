@@ -10,7 +10,7 @@ if TYPE_CHECKING:
 class SubscriptionEntity(BaseModel):
     pk: int
     user_id: str
-    product_tariff_id: int
+    server_id: int
     created_date: datetime
     start_date: datetime
     expired_date: datetime
@@ -20,7 +20,7 @@ class SubscriptionEntity(BaseModel):
         return cls(
             pk=instance.pk,
             user_id=instance.user.chat_id,
-            product_tariff_id=instance.product_tariff.pk,
+            server_id=instance.server_id,
             created_date=instance.created_date,
             start_date=instance.start_date,
             expired_date=instance.expired_date,

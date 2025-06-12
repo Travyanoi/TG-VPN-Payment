@@ -1,7 +1,4 @@
-from abc import ABC
 from typing import Optional
-
-from django.utils import timezone
 
 from apps.bot.repositories.base import BaseRepository
 from apps.shop.domain.subscription import SubscriptionEntity
@@ -25,11 +22,10 @@ class SubscriptionRepository(BaseRepository[SubscriptionEntity]):
             pk=entity.pk,
             defaults={
                 "user_id": entity.user_id,
-                "product_id": entity.product_id,
-                "purchase_id": entity.purchase_id,
-                "expires_at": entity.expires_at,
-                "is_active": entity.is_active,
-                "updated_at": entity.updated_at,
+                "server_id": entity.server_id,
+                "created_date": entity.created_date,
+                "start_date": entity.start_date,
+                "expired_date": entity.expired_date,
             }
         )
         return SubscriptionEntity.from_model(instance)
