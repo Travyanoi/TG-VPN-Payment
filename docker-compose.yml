@@ -1,8 +1,6 @@
 version: '3.9'
 
 x-container: &container
-  build:
-    context: .
   env_file:
     - .env
   restart: always
@@ -19,25 +17,29 @@ x-container: &container
 services:
   db:
     <<: *container
-    image: postgres:13.3
+    image: postgres:16-alpine
     environment:
       POSTGRES_DB: $DB_NAME
       POSTGRES_USER: $DB_USER
       POSTGRES_PASSWORD: $DB_PASS
     volumes:
-      - ./volumes/psql:/var/lib/postgresql/data
-    expose:
-      - "$DB_PORT"
+      - ./volumes/postgresql:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    sysctls:
+      - net.core.somaxconn=2048
 
   redis:
     <<: *container
-    image: redis:latest
-    container_name: redis-container
-    command: [ "redis-server", "--requirepass", "${REDIS_PASS}" ]
-    expose:
-      - "6379"
+    image: redis/redis-stack-server:7.4.0-v3
+    environment:
+      - REDIS_ARGS=--bind 0.0.0.0 --port 6379 --requirepass ${REDIS_PASS} --maxmemory 1000mb --maxmemory-policy volatile-ttl
     volumes:
       - ./volumes/redis:/data
+    ports:
+      - "6379:6379"
+    sysctls:
+      - net.core.somaxconn=2048
 
   rabbitmq:
     <<: *container
@@ -65,16 +67,19 @@ services:
 
   api:
     <<: *container
-    restart: always
+    build:
+      context: .
     command:
       - gunicorn
       - --config=conf/gunicorn.conf.py
       - settings.wsgi:application
-    expose:
-      - 8000
+    ports:
+      - "80:8000"
 
   collectstatic:
     <<: *container
+    build:
+      context: .
     restart: "no"
     command:
       - sh

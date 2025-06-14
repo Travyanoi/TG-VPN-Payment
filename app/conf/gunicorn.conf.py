@@ -8,14 +8,9 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from gunicorn.arbiter import Arbiter
-
-
-def get_statsd_prefix() -> str:
-    prefix = 'steam-monitor'
-    if custom_statsd_postfix := os.getenv('STATSD_POSTFIX_CUSTOM', False):
-        prefix = f'{prefix}-{custom_statsd_postfix}'
-
-    return prefix
+    from gunicorn.http import Request
+    from gunicorn.http.wsgi import Response
+    from apps.core.gunicorn_worker import ThreadWorkerWithMetrics
 
 
 # Server settings
@@ -23,7 +18,7 @@ bind = '0.0.0.0:8000'
 wsgi_app = "settings.wsgi:application"
 
 # Worker processes
-worker_class = 'steam_monitor.gunicorn_worker.ThreadWorkerWithMetrics'
+worker_class = 'apps.core.gunicorn_worker.ThreadWorkerWithMetrics'
 workers = int(os.getenv('GUNICORN_WORKERS', 2))
 threads = 4
 timeout = 180
@@ -40,7 +35,6 @@ secure_scheme_headers = {'X-FORWARDED-PROTO': 'https'}
 debug = os.getenv('DEBUG', False)
 loglevel = os.getenv('GUNICORN_DEBUG', False) and 'debug' or 'info'
 statsd_host = 'statsd-exporter:9125'
-statsd_prefix = get_statsd_prefix()
 
 # Logging
 errorlog = '-'
@@ -144,3 +138,16 @@ def when_ready(server: 'Arbiter') -> None:
             'mtype': 'gauge',
         },
     )
+
+
+def post_worker_init(worker: 'ThreadWorkerWithMetrics'):
+    import settings.urls  # noqa
+
+
+def pre_request(worker: 'ThreadWorkerWithMetrics', req: 'Request') -> None:
+    worker.busy.value += 1
+
+
+def post_request(worker: 'ThreadWorkerWithMetrics', req: 'Request', environ: dict, resp: 'Response') -> None:
+    worker.busy.value -= 1
+    worker.inflight_requests_count.value = len(worker.futures) - 1
