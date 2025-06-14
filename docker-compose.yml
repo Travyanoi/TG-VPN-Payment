@@ -74,9 +74,10 @@ services:
       - --certfile=ssl/server.pem
       - --keyfile=ssl/server.key
       - --config=conf/gunicorn.conf.py
+      - --bind=0.0.0.0:443
       - settings.wsgi:application
     ports:
-      - "80:8000"
+      - "443:443"
 
   collectstatic:
     <<: *container

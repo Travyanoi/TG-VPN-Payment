@@ -398,5 +398,9 @@ def bot_polling():
     # Удаление предыдущего вебхука, если он был настроен
     bot.remove_webhook()
     # Установка нового вебхука
-    bot.set_webhook(url=f"{WEBHOOK_PATH}/webhook/", secret_token=TELEGRAM_SECRET_TOKEN)
+    bot.set_webhook(
+        url=f"{WEBHOOK_PATH}/webhook/",
+        secret_token=TELEGRAM_SECRET_TOKEN,
+        certificate=open('ssl/server.pem', 'rb')
+    )
     logger.info(f"Webhook = {WEBHOOK_PATH}/webhook/")
