@@ -1,5 +1,4 @@
 import datetime
-import logging
 import re
 
 import structlog
@@ -14,7 +13,6 @@ from apps.bot.models import UserInfo, InfoForConfFile, ServerConfInfo
 from apps.bot.repositories.info_for_conf_file import InfoForConfFileRepository
 from apps.bot.repositories.server_conf_info import ServerConfInfoRepository
 from apps.bot.templates import *
-from apps.shop.domain.usecases.create_payment import CreatePaymentInputDTO, CreatePaymentUseCase
 from apps.shop.domain.usecases.create_purchase import CreatePurchaseUseCase, CreatePurchaseInputDTO
 from apps.shop.models import PriceDuration, Purchase
 from apps.shop.repositories.pay_system import PaySystemRepository
@@ -401,3 +399,4 @@ def bot_polling():
     bot.remove_webhook()
     # Установка нового вебхука
     bot.set_webhook(url=f"{WEBHOOK_PATH}/webhook/", secret_token=TELEGRAM_SECRET_TOKEN)
+    logger.info(f"Webhook = {WEBHOOK_PATH}/webhook/")
