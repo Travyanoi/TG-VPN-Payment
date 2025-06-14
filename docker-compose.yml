@@ -71,6 +71,8 @@ services:
       context: .
     command:
       - gunicorn
+      - --certfile=ssl/server.pem
+      - --keyfile=ssl/server.key
       - --config=conf/gunicorn.conf.py
       - settings.wsgi:application
     ports:
