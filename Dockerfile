@@ -34,7 +34,7 @@ RUN apt-get -qq update \
     && apt-get -y autoremove \
     && rm -rf /var/lib/apt/lists/*
 
-COPY app /srv/app
+COPY . /srv/app
 
 ENV PYTHONUNBUFFERED=1
 ENV PYTHONDONTWRITEBYTECODE=1
