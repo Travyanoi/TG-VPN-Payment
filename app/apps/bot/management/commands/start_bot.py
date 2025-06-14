@@ -14,6 +14,6 @@ class Command(BaseCommand):
             logger.info("trying configure webhook")
             bot_polling()
         except Exception as e:
-            logger.error("Webhook doesn't configured")
+            logger.error(f"Webhook doesn't configured = {e}")
         finally:
             logger.info("Webhook editing has done!")
