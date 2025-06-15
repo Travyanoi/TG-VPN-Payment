@@ -71,8 +71,6 @@ services:
       context: .
     command:
       - gunicorn
-      - --certfile=conf/ssl/certificate.crt
-      - --keyfile=conf/ssl/certificate.key
       - --config=conf/gunicorn.conf.py
       - --bind=0.0.0.0:443
       - settings.wsgi:application
