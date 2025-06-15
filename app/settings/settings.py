@@ -39,7 +39,7 @@ REDIS_PASS = os.environ.get('REDIS_PASS')
 
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = os.getenv('DEBUG', "False").lower() in ("1", "true")
 
 if DEBUG:
     environment = 'debug'
