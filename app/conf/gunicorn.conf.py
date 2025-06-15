@@ -16,9 +16,6 @@ if TYPE_CHECKING:
 # Server settings
 bind = '0.0.0.0:8000'
 wsgi_app = "settings.wsgi:application"
-keyfile = 'conf/ssl/certificate.key'
-certfile = 'conf/ssl/certificate.crt'
-ca_certs = 'conf/ssl/certificate_ca.crt'
 
 # Worker processes
 worker_class = 'apps.core.gunicorn_worker.ThreadWorkerWithMetrics'

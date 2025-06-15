@@ -72,10 +72,21 @@ services:
     command:
       - gunicorn
       - --config=conf/gunicorn.conf.py
-      - --bind=0.0.0.0:443
       - settings.wsgi:application
-    ports:
-      - "443:443"
+    expose:
+      - 8000
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.${COMPOSE_PROJECT_NAME}-api.tls=true
+      - traefik.http.routers.${COMPOSE_PROJECT_NAME}-api.tls.certresolver=letsencrypt
+      - traefik.http.routers.${COMPOSE_PROJECT_NAME}-api.rule=Host(`$VIRTUAL_HOST`)
+      - traefik.http.routers.${COMPOSE_PROJECT_NAME}-api.entrypoints=https
+      - traefik.http.routers.${COMPOSE_PROJECT_NAME}-api.middlewares=cloudflarewarp@file
+      - traefik.http.services.${COMPOSE_PROJECT_NAME}-api.loadbalancer.server.port=8000
+      - traefik.http.services.${COMPOSE_PROJECT_NAME}-api.loadbalancer.server.scheme=http
+      - traefik.http.routers.${COMPOSE_PROJECT_NAME}-api-http.rule=Host(`$VIRTUAL_HOST`)
+      - traefik.http.routers.${COMPOSE_PROJECT_NAME}-api-http.entrypoints=http
+      - traefik.http.routers.${COMPOSE_PROJECT_NAME}-api-http.middlewares=default-https-redirect@file
 
   collectstatic:
     <<: *container
