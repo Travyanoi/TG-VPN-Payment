@@ -20,7 +20,7 @@ wsgi_app = "settings.wsgi:application"
 # Worker processes
 worker_class = 'apps.core.gunicorn_worker.ThreadWorkerWithMetrics'
 workers = int(os.getenv('GUNICORN_WORKERS', 2))
-threads = 4
+threads = 1
 timeout = 180
 graceful_timeout = 185
 keepalive = 15
