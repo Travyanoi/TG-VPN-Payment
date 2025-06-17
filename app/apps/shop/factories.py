@@ -1,9 +1,14 @@
+import random
+from decimal import Decimal
+
 import factory.django
 
 from apps.shop.models import Purchase, PriceDuration, Product, Discount, Payment, PaySystem, Subscription
 
 
 class DiscountFactory(factory.django.DjangoModelFactory):
+    percent = factory.LazyFunction(lambda: random.choice(range(5, 101, 5)))
+
     class Meta:
         model = Discount
 
@@ -16,13 +21,15 @@ class PaySystemFactory(factory.django.DjangoModelFactory):
 
 
 class ProductFactory(factory.django.DjangoModelFactory):
+    base_price = factory.LazyFunction(lambda: random.choice(range(50, 250, 25)))
+
     class Meta:
         model = Product
 
 
 class PriceDurationFactory(factory.django.DjangoModelFactory):
-    product = factory.SubFactory('shop.ProductFactory')
-    discount = factory.SubFactory('shop.DiscountFactory')
+    product = factory.SubFactory(ProductFactory)
+    discount = factory.SubFactory(DiscountFactory)
 
     class Meta:
         model = PriceDuration

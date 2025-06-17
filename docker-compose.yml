@@ -57,7 +57,7 @@ services:
     <<: *container
     build:
       context: .
-    command: celery -A settings worker -l info --prefetch-multiplier=1 -Q default -E
+    command: celery -A settings worker -l info --prefetch-multiplier=1 -Q $QUEUE_NAME -E
 
   celerybeat:
     <<: *container

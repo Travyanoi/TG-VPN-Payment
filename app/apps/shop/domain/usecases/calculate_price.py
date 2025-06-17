@@ -1,6 +1,7 @@
-from datetime import datetime
 from decimal import Decimal, ROUND_HALF_UP
 from typing import Optional
+
+from django.utils import timezone
 
 from apps.core.domain.usecases.base import BaseUseCaseInputDTO, BaseUseCase, BaseUseCaseOutputDTO
 from apps.shop.domain.price_duration import PriceDurationEntity
@@ -9,7 +10,6 @@ from apps.shop.repositories.product import ProductRepository
 
 
 class PriceDurationInputDTO(BaseUseCaseInputDTO):
-    pk: int
     product_id: int
     duration: int
     currency: str
@@ -18,7 +18,6 @@ class PriceDurationInputDTO(BaseUseCaseInputDTO):
     @classmethod
     def from_entity(cls, entity: 'PriceDurationEntity'):
         return cls(
-            pk=entity.pk,
             product_id=entity.product_id,
             duration=entity.duration,
             currency=entity.currency,
@@ -46,9 +45,9 @@ class CalculateProductPriceUseCase(BaseUseCase[PriceDurationInputDTO, CalculateP
 
         discount_percent = None
         if input_dto.discount_id is not None:
-            discount = self.discount_repository.get_by_id(input_dto.discount_pk)
+            discount = self.discount_repository.get_by_id(input_dto.discount_id)
 
-            now = datetime.now()
+            now = timezone.now()
             if not discount.is_active or \
                     (discount.starts_at and discount.starts_at > now) or \
                     (discount.ends_at and discount.ends_at < now):
