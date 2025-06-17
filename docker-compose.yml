@@ -57,6 +57,8 @@ services:
     <<: *container
     build:
       context: .
+    volumes:
+      - /etc/wireguard/wg1.conf:/etc/wireguard/wg1.conf
     command: celery -A settings worker -l info --prefetch-multiplier=1 -Q $QUEUE_NAME -E
 
   celerybeat:

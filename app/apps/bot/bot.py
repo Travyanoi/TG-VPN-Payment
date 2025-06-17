@@ -13,11 +13,13 @@ from apps.bot.models import UserInfo, InfoForConfFile, ServerConfInfo
 from apps.bot.repositories.info_for_conf_file import InfoForConfFileRepository
 from apps.bot.repositories.server_conf_info import ServerConfInfoRepository
 from apps.bot.templates import *
+from apps.bot.workflows.user_addition_amnesiawg import build_user_addition_pipeline
 from apps.shop.domain.usecases.create_purchase import CreatePurchaseUseCase, CreatePurchaseInputDTO
 from apps.shop.models import PriceDuration, Purchase
 from apps.shop.repositories.pay_system import PaySystemRepository
 from apps.shop.repositories.price_duration import PriceDurationRepository
 from apps.shop.repositories.product import ProductRepository
+from apps.shop.services.resolve_pay_system_handler import ResolvePaySystemHandlerService
 from settings.settings import WG_CONF_ROOT, BOT_SECRET_TOKEN, WEBHOOK_PATH, TELEGRAM_SECRET_TOKEN
 
 regex_for_digit = re.compile(r"(\d+)")
@@ -123,22 +125,29 @@ def conf_file_formatter():
 def cmd_start(message: telebot.types.Message):
     kb = [global_kb[0]] + [global_kb[1]] + [global_kb[2]]
 
-    # TODO репозиторий
-    UserInfo.objects.get_or_create(
-        chat_id=message.chat.id,
-        defaults={
-            "first_name": message.chat.first_name or "",
-            "last_name": message.chat.last_name or "",
-            "username": message.chat.username or ""
-        }
-    )
+    # # TODO репозиторий
+    # UserInfo.objects.get_or_create(
+    #     chat_id=message.chat.id,
+    #     defaults={
+    #         "first_name": message.chat.first_name or "",
+    #         "last_name": message.chat.last_name or "",
+    #         "username": message.chat.username or ""
+    #     }
+    # )
+    #
+    # bot.send_message(
+    #     chat_id=message.chat.id,
+    #     reply_markup=telebot.types.InlineKeyboardMarkup(keyboard=kb),
+    #     text=greetings_text
+    # )
 
-    bot.send_message(
-        chat_id=message.chat.id,
-        reply_markup=telebot.types.InlineKeyboardMarkup(keyboard=kb),
-        text=greetings_text
-    )
+    dto = {
+        "username": "Ivanosi",
+        "public_key": "dlkjldkfj=",
+        "ip_address": "192.168.0.1/32"
+    }
 
+    build_user_addition_pipeline(dto=dto).apply_async()
 
 def build_kb(data: list[tuple[str]]):
     return [
@@ -207,35 +216,35 @@ def buy_sub_cmd(message: telebot.types.CallbackQuery):
 def buy_sub_cmd(message: telebot.types.CallbackQuery):
     kb = []
 
-    server_id = message.data.split("_")[-2]
+    #server_id = message.data.split("_")[-2]
 
-    conf_file_entity = InfoForConfFileRepository().get_by_user_server_id(
-        chat_id=str(message.message.chat.id),
-        server_id=int(server_id)
-    )
-    conf_file_dto = InfoForConfFileInputDTO.from_entity(conf_file_entity)
-
-    byte_string = CreateConfigFileForUserUseCase().execute(conf_file_dto)
-
-    bot.delete_message(chat_id=message.message.chat.id, message_id=message.message.message_id)
-    try:
-        bot.send_document(
-            chat_id=message.message.chat.id,
-            document=byte_string,
-            visible_file_name=f"{message.message.chat.id}.conf"
-        )
-    except ApiTelegramException as tele_exc:
-        logger.error("Telegram API exception", exc_info=True, detail=str(tele_exc))
-        bot.send_message(
-            chat_id=message.message.chat.id,
-            text="Произошла ошибка, обратитесь в поддержку!"
-        )
-
-    bot.send_message(
-        chat_id=message.message.chat.id,
-        reply_markup=telebot.types.InlineKeyboardMarkup(keyboard=kb),
-        text=conf_file_text
-    )
+    # conf_file_entity = InfoForConfFileRepository().get_by_user_server_id(
+    #     chat_id=str(message.message.chat.id),
+    #     server_id=int(server_id)
+    # )
+    # conf_file_dto = InfoForConfFileInputDTO.from_entity(conf_file_entity)
+    #
+    # byte_string = CreateConfigFileForUserUseCase().execute(conf_file_dto)
+    #
+    # bot.delete_message(chat_id=message.message.chat.id, message_id=message.message.message_id)
+    # try:
+    #     bot.send_document(
+    #         chat_id=message.message.chat.id,
+    #         document=byte_string,
+    #         visible_file_name=f"{message.message.chat.id}.conf"
+    #     )
+    # except ApiTelegramException as tele_exc:
+    #     logger.error("Telegram API exception", exc_info=True, detail=str(tele_exc))
+    #     bot.send_message(
+    #         chat_id=message.message.chat.id,
+    #         text="Произошла ошибка, обратитесь в поддержку!"
+    #     )
+    #
+    # bot.send_message(
+    #     chat_id=message.message.chat.id,
+    #     reply_markup=telebot.types.InlineKeyboardMarkup(keyboard=kb),
+    #     text=conf_file_text
+    # )
 
     pay_systems = PaySystemRepository().all()
     for pay_system in pay_systems:
@@ -265,7 +274,7 @@ def buy_sub_cmd(message: telebot.types.CallbackQuery):
     )
     purchase_output_dto = CreatePurchaseUseCase().execute(purchase_input_dto)
     paysystem_entity = PaySystemRepository().get_by_id(pay_system_id)
-    payment_class = paysystem_entity.get_class()
+    payment_class = ResolvePaySystemHandlerService.resolve_paysystem_handler(paysystem_entity.class_name)
     payment_class_obj = payment_class(purchase_output_dto.purchase_id, message.message.chat.id, pay_system_id)
     payment_dict = payment_class_obj.create_payment()
 
