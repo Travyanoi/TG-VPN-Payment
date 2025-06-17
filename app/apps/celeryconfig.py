@@ -31,10 +31,14 @@ result_serializer = 'json'
 enable_utc = True
 
 QUEUE_DEFAULT = 'default'
+QUEUE_FRANKFURT = 'frankfurt'
+QUEUE_STOCKHOLM = 'stockholm'
 
 task_default_queue = QUEUE_DEFAULT
 task_queues = (
     Queue(QUEUE_DEFAULT, Exchange(QUEUE_DEFAULT), routing_key=QUEUE_DEFAULT),
+    Queue(QUEUE_FRANKFURT, Exchange(QUEUE_FRANKFURT), routing_key=QUEUE_FRANKFURT),
+    Queue(QUEUE_STOCKHOLM, Exchange(QUEUE_STOCKHOLM), routing_key=QUEUE_STOCKHOLM),
 )
 
 beat_schedule = {}
