@@ -18,6 +18,7 @@ ARG BUILD_DEPS="\
 ARG RUNTIME_DEPS="\
     libpq5 \
     gdal-bin \
+    openssh-client \
 "
 
 # install dependencies

@@ -59,6 +59,8 @@ services:
       context: .
     volumes:
       - /etc/wireguard/wg1.conf:/etc/wireguard/wg1.conf
+      - /opt/ssh/worker_key:/root/.ssh/worker_key:ro
+      - ~/.ssh/known_hosts:/root/.ssh/known_hosts:ro
     command: celery -A settings worker -l info --prefetch-multiplier=1 -Q $QUEUE_NAME -E
 
   celerybeat:
