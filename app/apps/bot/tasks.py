@@ -1,35 +1,61 @@
+import structlog
 from celery import shared_task
-import logging
-import os
 import subprocess
 
-logger = logging.getLogger(__name__)
+from apps.bot.repositories.info_for_conf_file import InfoForConfFileRepository
+
+logger = structlog.getLogger("bot.tasks")
 
 @shared_task(bind=True)
 def add_user_to_wireguard(self, dto: dict):
     """
-    Задача выполняется на воркере stockholm. Добавляет пользователя в конфигурацию WireGuard.
+    Задача выполняется на воркере stockholm.
+    Обновляет конфигурационный файл awg0 и применяет изменения через ssh на хосте.
     """
     try:
-        username = dto["username"]
-        pubkey = dto["public_key"]
-        ip = dto["ip_address"]
+        server_id = dto["server_id"]
+        ssh_endpoint = dto["ssh_endpoint"]
+        ssh_user = "root"
+        ssh_key_path = "/opt/ssh/worker_key"
 
-        config_path = "/etc/wireguard/wg1.conf"
+        template_path = "/etc/amnezia/amneziawg/awg0-template.conf"
+        config_path = "/etc/amnezia/amneziawg/awg0.conf"
 
-        peer_config = f"\n[Peer]\n# {username}\nPublicKey = {pubkey}\nAllowedIPs = {ip}/32\n"
-        with open(config_path, "a") as f:
-            f.write(peer_config)
+        # 1. Генерируем конфиг на основе шаблона и записываем его
+        with open(template_path, "r") as f:
+            config_base = f.read()
 
-        # Применяем изменения
-        # subprocess.run(["wg-quick", "save", "wg0"], check=True)
-        # subprocess.run(["wg", "addconf", "wg0", config_path], check=True)
-        print(f"\nTASK COMPLETED\n")
-        return {"status": "success", "username": username}
+        repo = InfoForConfFileRepository()
+        users = repo.get_enabled_by_server_id(server_id)
+
+        peer_blocks = ""
+        for user in users:
+            peer_blocks += (
+                f"\n[Peer]\n"
+                f"# {user.username}\n"
+                f"PublicKey = {user.public_key}\n"
+                f"AllowedIPs = {user.ip_address}/32\n"
+            )
+
+        full_config = config_base.strip() + "\n" + peer_blocks
+
+        with open(config_path, "w") as f:
+            f.write(full_config)
+
+        # 2. Подключаемся по SSH к хосту и перезапускаем интерфейс awg0
+        ssh_command = (
+            f"ssh -i {ssh_key_path}"
+            f"{ssh_user}@{ssh_endpoint} 'awg-quick down awg0 && awg-quick up awg0'"
+        )
+
+        subprocess.run(ssh_command, shell=True, check=True)
+
+        logger.info(f"Конфигурация обновлена и интерфейс перезапущен на {ssh_endpoint}")
+        return {"status": "success", "server_id": server_id, "user_count": len(users)}
 
     except Exception as e:
-        logger.exception("Ошибка при добавлении пользователя в WireGuard")
-        return {"status": "error", "error": str(e), "username": dto.get("username")}
+        logger.exception("Ошибка при обновлении конфигурации WireGuard")
+        return {"status": "error", "error": str(e), "server_id": dto.get("server_id")}
 
 
 @shared_task(bind=True)
