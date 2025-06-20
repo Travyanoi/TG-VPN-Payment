@@ -37,7 +37,7 @@ def add_user_to_wireguard(self, dto: dict):
                 f"\n[Peer]\n"
                 f"# {user.user_id} --- {user_info.username}\n"
                 f"PublicKey = {user.publickey}\n"
-                f"AllowedIPs = {user.address}/32\n"
+                f"AllowedIPs = {user.address}\n"
             )
 
         full_config = config_base.strip() + "\n" + peer_blocks
