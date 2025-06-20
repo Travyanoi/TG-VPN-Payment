@@ -3,6 +3,7 @@ from celery import shared_task
 import subprocess
 
 from apps.bot.repositories.info_for_conf_file import InfoForConfFileRepository
+from apps.bot.repositories.user_info import UserInfoRepository
 
 logger = structlog.getLogger("bot.tasks")
 
@@ -30,9 +31,11 @@ def add_user_to_wireguard(self, dto: dict):
 
         peer_blocks = ""
         for user in users:
+            user_repo = UserInfoRepository()
+            user_info = user_repo.get_by_chat_id(user.user_id)
             peer_blocks += (
                 f"\n[Peer]\n"
-                f"# {user.username}\n"
+                f"# {user.user_id} --- {user_info.username}\n"
                 f"PublicKey = {user.public_key}\n"
                 f"AllowedIPs = {user.ip_address}/32\n"
             )
