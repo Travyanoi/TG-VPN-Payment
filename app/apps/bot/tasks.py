@@ -46,8 +46,8 @@ def add_user_to_wireguard(self, dto: dict):
             f.write(full_config)
 
         ssh_command = (
-            f"ssh -i {ssh_key_path}"
-            f"{ssh_user}@{ssh_endpoint} 'awg-quick down awg0 && awg-quick up awg0'"
+            f"ssh -i {ssh_key_path} {ssh_user}@{ssh_endpoint} "
+            f"&& awg-quick down awg0 && awg-quick up awg0"
         )
 
         subprocess.run(ssh_command, shell=True, check=True)
