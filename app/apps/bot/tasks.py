@@ -17,7 +17,7 @@ def add_user_to_wireguard(self, dto: dict):
         server_id = dto["server_id"]
         ssh_endpoint = dto["ssh_endpoint"]
         ssh_user = "root"
-        ssh_key_path = "/opt/ssh/worker_key"
+        ssh_key_path = "/root/.ssh/worker_key"
 
         template_path = "/etc/amnezia/amneziawg/awg0-template.conf"
         config_path = "/etc/amnezia/amneziawg/awg0.conf"
