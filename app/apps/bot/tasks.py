@@ -36,8 +36,8 @@ def add_user_to_wireguard(self, dto: dict):
             peer_blocks += (
                 f"\n[Peer]\n"
                 f"# {user.user_id} --- {user_info.username}\n"
-                f"PublicKey = {user.public_key}\n"
-                f"AllowedIPs = {user.ip_address}/32\n"
+                f"PublicKey = {user.publickey}\n"
+                f"AllowedIPs = {user.address}/32\n"
             )
 
         full_config = config_base.strip() + "\n" + peer_blocks
@@ -45,7 +45,6 @@ def add_user_to_wireguard(self, dto: dict):
         with open(config_path, "w") as f:
             f.write(full_config)
 
-        # 2. Подключаемся по SSH к хосту и перезапускаем интерфейс awg0
         ssh_command = (
             f"ssh -i {ssh_key_path}"
             f"{ssh_user}@{ssh_endpoint} 'awg-quick down awg0 && awg-quick up awg0'"
