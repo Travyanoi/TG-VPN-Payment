@@ -20,7 +20,7 @@ class InfoForConfFileRepository(BaseRepository[InfoForConfFileEntity]):
         return [InfoForConfFileEntity.from_model(instance) for instance in instances]
 
     def get_enabled_by_server_id(self, server_id: int) -> List[InfoForConfFileEntity]:
-        instances = InfoForConfFile.objects.filter(server_id=server_id, enabled=True)
+        instances = InfoForConfFile.objects.filter(server_id=server_id, enable=True)
         return [InfoForConfFileEntity.from_model(instance) for instance in instances]
 
     def create(self, **kwargs) -> InfoForConfFileEntity:
