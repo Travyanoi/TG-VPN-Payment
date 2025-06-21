@@ -132,23 +132,23 @@ def conf_file_formatter():
 def cmd_start(message: telebot.types.Message):
     kb = [global_kb[0]] + [global_kb[1]] + [global_kb[2]]
 
-    # # TODO репозиторий
-    # UserInfo.objects.get_or_create(
-    #     chat_id=message.chat.id,
-    #     defaults={
-    #         "first_name": message.chat.first_name or "",
-    #         "last_name": message.chat.last_name or "",
-    #         "username": message.chat.username or ""
-    #     }
-    # )
-    #
-    # bot.send_message(
-    #     chat_id=message.chat.id,
-    #     reply_markup=telebot.types.InlineKeyboardMarkup(keyboard=kb),
-    #     text=greetings_text
-    # )
+    # TODO репозиторий
+    UserInfo.objects.get_or_create(
+        chat_id=message.chat.id,
+        defaults={
+            "first_name": message.chat.first_name or "",
+            "last_name": message.chat.last_name or "",
+            "username": message.chat.username or ""
+        }
+    )
 
-    build_user_addition_pipeline(server_id=1, chat_id=message.chat.id, queue_send="stockholm").apply_async()
+    bot.send_message(
+        chat_id=message.chat.id,
+        reply_markup=telebot.types.InlineKeyboardMarkup(keyboard=kb),
+        text=greetings_text
+    )
+
+    # build_user_addition_pipeline(server_id=1, chat_id=message.chat.id, queue_send="stockholm").apply_async()
 
 
 def build_kb(data: list[tuple[str]]):
