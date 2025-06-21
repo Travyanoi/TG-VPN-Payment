@@ -96,7 +96,7 @@ class YooKassa:
                 logging.error(data)
                 raise NotFound("Payment не найден")
 
-            if data['status'] == "waiting_for_capture":
+            if data['status'] == "success":
                 purchase = PurchaseRepository().get_by_id(payment.purchase_id)
                 server = ServerConfInfoRepository().get_by_id(purchase.server_id)
                 build_user_addition_pipeline(server_id=server.pk, chat_id=payment.user_id, queue_send="stockholm").apply_async()
