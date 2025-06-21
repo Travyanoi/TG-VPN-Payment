@@ -98,7 +98,7 @@ def notify_user_addition_status(self, result: dict):
         if not user_info or not server_info:
             raise ValueError("Не удалось получить необходимые данные для формирования конфигурации")
 
-        extra = server_info.extra_conf or {}
+        extra = server_info.extra_conf
 
         allowed_ips = ("0.0.0.0/5, 8.0.0.0/7, 11.0.0.0/8, 12.0.0.0/6, 16.0.0.0/4, 32.0.0.0/3, 64.0.0.0/2, 128.0.0.0/3, "
                        "160.0.0.0/5, 168.0.0.0/6, 172.0.0.0/12, 172.32.0.0/11, 172.64.0.0/10, 172.128.0.0/9, "
@@ -123,9 +123,9 @@ def notify_user_addition_status(self, result: dict):
             "DNS = 8.8.8.8\n"
             "MTU = 1420\n\n"
             "[Peer]\n"
-            f"PublicKey = {user_info.server_publickey}\n"
+            f"PublicKey = {server_info.publickey}\n"
             f"AllowedIPs = {allowed_ips}\n"
-            f"Endpoint = {user_info.server_address}:{user_info.server_port}\n"
+            f"Endpoint = {user_info.address}\n"
             "PersistentKeepalive = 60"
         ).encode("utf-8")
 
