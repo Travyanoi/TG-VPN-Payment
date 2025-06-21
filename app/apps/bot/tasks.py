@@ -33,7 +33,7 @@ def add_or_replace_user_in_wireguard(self, server_id: int, chat_id: str):
 
         ssh_user = "root"
         ssh_key_path = "/root/.ssh/worker_key"
-        ssh_endpoint = server.end_point
+        ssh_endpoint = server.end_point.split(":")[0]
 
         config_path = "/etc/amnezia/amneziawg/awg0.conf"
 
@@ -84,7 +84,7 @@ def notify_user_addition_status(self, result: dict):
         logger.warning("Нет chat_id или server_id для отправки конфигурации")
         return
 
-    if status != "success":
+    if status not in ["success", "skipped"]:
         logger.error(f"Ошибка при добавлении пользователя {chat_id}: {result.get('error')}")
         return
 
@@ -106,7 +106,7 @@ def notify_user_addition_status(self, result: dict):
                        "173.0.0.0/8, 174.0.0.0/7, 176.0.0.0/4, 192.0.0.0/9, 192.128.0.0/11, 192.160.0.0/13, "
                        "192.169.0.0/16, 192.170.0.0/15, 192.172.0.0/14, 192.176.0.0/12, 192.192.0.0/10, "
                        "193.0.0.0/8, 194.0.0.0/7, 196.0.0.0/6, 200.0.0.0/5, 208.0.0.0/4, 8.8.8.8/32"
-                       )
+        )
 
         file = BytesIO()
 

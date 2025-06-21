@@ -141,12 +141,7 @@ def cmd_start(message: telebot.types.Message):
     #     text=greetings_text
     # )
 
-    dto = {
-        "server_id": "1",
-        "ssh_endpoint": "41.216.182.144",
-    }
-
-    build_user_addition_pipeline(dto=dto, queue_send="stockholm").apply_async()
+    build_user_addition_pipeline(server_id=1, chat_id=message.chat.id, queue_send="stockholm").apply_async()
 
 def build_kb(data: list[tuple[str]]):
     return [
