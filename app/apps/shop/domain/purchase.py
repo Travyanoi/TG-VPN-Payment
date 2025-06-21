@@ -12,7 +12,7 @@ class PurchaseEntity(BaseModel):
     pk: int
     user_id: str
     price_duration_id: int
-    product_id: int
+    server_id: int
     currency: str
     amount: Decimal
     created_date: datetime
@@ -25,7 +25,7 @@ class PurchaseEntity(BaseModel):
             pk=instance.pk,
             user_id=instance.user_id,
             price_duration_id=instance.price_duration_id,
-            product_id=instance.product_id,
+            server_id=instance.server_id,
             currency=instance.currency,
             amount=instance.amount,
             created_date=instance.created_date,

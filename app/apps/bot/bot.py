@@ -63,6 +63,7 @@ def send_conf_file(chat_id: int, file_data: bytes):
         visible_file_name=f"{chat_id}.conf",
     )
 
+
 def resub(chat_id: UserInfo.chat_id, resub_time_in_months: int):
     client: InfoForConfFile = InfoForConfFile.objects.get(chat_id=chat_id)
     resub_duration = datetime.timedelta(days=30 * int(resub_time_in_months))
@@ -149,6 +150,7 @@ def cmd_start(message: telebot.types.Message):
 
     build_user_addition_pipeline(server_id=1, chat_id=message.chat.id, queue_send="stockholm").apply_async()
 
+
 def build_kb(data: list[tuple[str]]):
     return [
         [InlineKeyboardButton(text=kb_item[2], callback_data=f"{str(kb_item[0])}_id_purchase")]
@@ -216,7 +218,7 @@ def buy_sub_cmd(message: telebot.types.CallbackQuery):
 def buy_sub_cmd(message: telebot.types.CallbackQuery):
     kb = []
 
-    #server_id = message.data.split("_")[-2]
+    # server_id = message.data.split("_")[-2]
 
     # conf_file_entity = InfoForConfFileRepository().get_by_user_server_id(
     #     chat_id=str(message.message.chat.id),
@@ -270,7 +272,7 @@ def buy_sub_cmd(message: telebot.types.CallbackQuery):
     purchase_input_dto = CreatePurchaseInputDTO(
         user_id=str(message.message.chat.id),
         price_duration_id=duration_id,
-        product_id=product_id
+        server_id=server_id
     )
     purchase_output_dto = CreatePurchaseUseCase().execute(purchase_input_dto)
     paysystem_entity = PaySystemRepository().get_by_id(pay_system_id)
@@ -286,6 +288,7 @@ def buy_sub_cmd(message: telebot.types.CallbackQuery):
         reply_markup=telebot.types.InlineKeyboardMarkup(keyboard=kb),
         text="Ссылка на оплату ниже, после оплаты вам придет файл"
     )
+
 
 @bot.callback_query_handler(func=lambda call: call.data.endswith('_id_purchase'))
 def payment_cmd(message: telebot.types.CallbackQuery):

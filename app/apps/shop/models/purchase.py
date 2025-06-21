@@ -12,7 +12,7 @@ class Purchase(models.Model):
         on_delete=models.SET_NULL,
         null=True
     )
-    product = models.ForeignKey("shop.Product", related_name="purchases", on_delete=models.CASCADE, null=True)
+    server = models.ForeignKey("bot.ServerConfInfo", related_name="purchases", on_delete=models.CASCADE, null=True)
 
     currency = models.CharField("Валюта", max_length=3, default='RUB')
 

@@ -27,7 +27,7 @@ class PurchaseRepository(BaseRepository[PurchaseEntity]):
             defaults={
                 "user": entity.user,
                 "price_duration_id": entity.price_duration_id,
-                "product_id": entity.product_id,
+                "server_id": entity.server_id,
                 "currency": entity.currency,
                 "amount": entity.amount,
                 "created_date": entity.created_date,
