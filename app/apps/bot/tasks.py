@@ -1,6 +1,4 @@
 from io import BytesIO
-from pydoc import visiblename
-from tempfile import NamedTemporaryFile
 
 import structlog
 from celery import shared_task
