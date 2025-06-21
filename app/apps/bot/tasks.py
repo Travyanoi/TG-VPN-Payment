@@ -1,15 +1,13 @@
-from io import BytesIO
-
 import structlog
 from celery import shared_task
 import subprocess
 
-from apps.bot.bot import bot
 from apps.bot.repositories.info_for_conf_file import InfoForConfFileRepository
 from apps.bot.repositories.server_conf_info import ServerConfInfoRepository
 from apps.bot.repositories.user_info import UserInfoRepository
 
 logger = structlog.getLogger("bot.tasks")
+
 
 @shared_task(bind=True)
 def add_user_to_wireguard(self, server_id: int, chat_id: str):
@@ -69,6 +67,7 @@ def add_user_to_wireguard(self, server_id: int, chat_id: str):
         logger.exception("Ошибка при добавлении пользователя в WireGuard")
         return {"status": "error", "error": str(e), "chat_id": chat_id, "server_id": server_id}
 
+
 @shared_task(bind=True)
 def notify_user_addition_status(self, result: dict):
     """
@@ -106,44 +105,32 @@ def notify_user_addition_status(self, result: dict):
                        "173.0.0.0/8, 174.0.0.0/7, 176.0.0.0/4, 192.0.0.0/9, 192.128.0.0/11, 192.160.0.0/13, "
                        "192.169.0.0/16, 192.170.0.0/15, 192.172.0.0/14, 192.176.0.0/12, 192.192.0.0/10, "
                        "193.0.0.0/8, 194.0.0.0/7, 196.0.0.0/6, 200.0.0.0/5, 208.0.0.0/4, 8.8.8.8/32"
-        )
+                       )
 
-        file = BytesIO()
+        file = (
+            "[Interface]\n"
+            f"PrivateKey = {user_info.privatekey}\n"
+            f"Jc = {extra.get('jc')}\n"
+            f"Jmin = {extra.get('jmin')}\n"
+            f"Jmax = {extra.get('jmax')}\n"
+            f"S1 = {extra.get('s1')}\n"
+            f"S2 = {extra.get('s2')}\n"
+            f"H1 = {extra.get('h1')}\n"
+            f"H2 = {extra.get('h2')}\n"
+            f"H3 = {extra.get('h3')}\n"
+            f"H4 = {extra.get('h4')}\n"
+            f"Address = {user_info.address}\n"
+            "DNS = 8.8.8.8\n"
+            "MTU = 1420\n\n"
+            "[Peer]\n"
+            f"PublicKey = {user_info.server_publickey}\n"
+            f"AllowedIPs = {allowed_ips}\n"
+            f"Endpoint = {user_info.server_address}:{user_info.server_port}\n"
+            "PersistentKeepalive = 60"
+        ).encode("utf-8")
 
-        file.write(
-            (
-                "[Interface]\n"
-                f"PrivateKey = {user_info.privatekey}\n"
-                f"Jc = {extra.get('jc')}\n"
-                f"Jmin = {extra.get('jmin')}\n"
-                f"Jmax = {extra.get('jmax')}\n"
-                f"S1 = {extra.get('s1')}\n"
-                f"S2 = {extra.get('s2')}\n"
-                f"H1 = {extra.get('h1')}\n"
-                f"H2 = {extra.get('h2')}\n"
-                f"H3 = {extra.get('h3')}\n"
-                f"H4 = {extra.get('h4')}\n"
-                f"Address = {user_info.address}\n"
-                "DNS = 8.8.8.8\n"
-                "MTU = 1420\n\n"
-                "[Peer]\n"
-                f"PublicKey = {user_info.server_publickey}\n"
-                f"AllowedIPs = {allowed_ips}\n"
-                f"Endpoint = {user_info.server_address}:{user_info.server_port}\n"
-                "PersistentKeepalive = 60"
-            ).encode("utf-8")
-        )
-
-        file.seek(0)
-
-        bot.send_document(
-            chat_id,
-            file,
-            caption="Ваш конфигурационный файл для AmnesiaWG",
-            visible_file_name=f"{chat_id}.conf",
-        )
-
-        file.close()
+        from apps.bot.bot import send_conf_file
+        send_conf_file(chat_id, file)
 
         logger.info(f"Файл конфигурации успешно отправлен пользователю {chat_id}")
 

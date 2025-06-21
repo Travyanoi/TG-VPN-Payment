@@ -1,16 +1,14 @@
 import datetime
 import re
+from io import BytesIO
 
 import structlog
 import telebot
-from telebot.apihelper import ApiTelegramException
 from telebot.types import InlineKeyboardButton
 
-from apps.bot.domain.usecases.create_conf_file_for_user import CreateConfigFileForUserUseCase, InfoForConfFileInputDTO
 from apps.bot.exception_handler import MyExceptionHandler
 from apps.bot.keyboards import global_kb
 from apps.bot.models import UserInfo, InfoForConfFile, ServerConfInfo
-from apps.bot.repositories.info_for_conf_file import InfoForConfFileRepository
 from apps.bot.repositories.server_conf_info import ServerConfInfoRepository
 from apps.bot.templates import *
 from apps.bot.workflows.user_addition_amnesiawg import build_user_addition_pipeline
@@ -56,6 +54,14 @@ logger = structlog.getLogger("bot.bot")
 #
 #     conf_file_formatter()
 
+def send_conf_file(chat_id: int, file_data: bytes):
+    file = BytesIO(file_data)
+
+    bot.send_document(
+        chat_id=chat_id,
+        document=file,
+        visible_file_name=f"{chat_id}.conf",
+    )
 
 def resub(chat_id: UserInfo.chat_id, resub_time_in_months: int):
     client: InfoForConfFile = InfoForConfFile.objects.get(chat_id=chat_id)
