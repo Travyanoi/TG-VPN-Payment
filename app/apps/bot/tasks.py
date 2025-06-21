@@ -12,7 +12,7 @@ from apps.bot.repositories.user_info import UserInfoRepository
 logger = structlog.getLogger("bot.tasks")
 
 @shared_task(bind=True)
-def add_or_replace_user_in_wireguard(self, server_id: int, chat_id: str):
+def add_user_to_wireguard(self, server_id: int, chat_id: str):
     """
     Добавляет нового пользователя в awg0.conf, если он ещё не добавлен.
     """
