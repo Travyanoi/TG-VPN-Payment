@@ -27,7 +27,7 @@ class CreatePurchaseUseCase(BaseUseCase[CreatePurchaseInputDTO, CreatePurchaseOu
 
         price_duration_dto = PriceDurationInputDTO.from_entity(price_duration)
         amount = CalculateProductPriceUseCase().execute(price_duration_dto)
-        server = self.server.get_by_id(input_dto.product_id)
+        server = self.server.get_by_id(input_dto.server_id)
 
         discount = f"скидка {amount.discount_percent}" if amount.discount_percent else "без скидки"
 

@@ -4,7 +4,9 @@ from uuid import UUID
 from django.http import JsonResponse
 from rest_framework.exceptions import ValidationError, NotFound
 
+from apps.bot.repositories.server_conf_info import ServerConfInfoRepository
 from apps.bot.repositories.user_info import UserInfoRepository
+from apps.bot.workflows.user_addition_amnesiawg import build_user_addition_pipeline
 from apps.core.redis_mutex import RedisMutex
 from apps.shop.domain.usecases.create_payment import CreatePaymentInputDTO, CreatePaymentUseCase
 from apps.shop.models import Payment
@@ -93,6 +95,11 @@ class YooKassa:
             if not payment:
                 logging.error(data)
                 raise NotFound("Payment не найден")
+
+            if data['status'] == "waiting_for_capture":
+                purchase = PurchaseRepository().get_by_id(payment.purchase_id)
+                server = ServerConfInfoRepository().get_by_id(purchase.server_id)
+                build_user_addition_pipeline(server_id=server.pk, chat_id=payment.user_id, queue_send="stockholm").apply_async()
 
             # TODO обновить payment до статуса внутри data, если success, тогда создаем подписку
 

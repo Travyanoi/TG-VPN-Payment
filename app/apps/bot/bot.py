@@ -11,7 +11,6 @@ from apps.bot.keyboards import global_kb
 from apps.bot.models import UserInfo, InfoForConfFile, ServerConfInfo
 from apps.bot.repositories.server_conf_info import ServerConfInfoRepository
 from apps.bot.templates import *
-from apps.bot.workflows.user_addition_amnesiawg import build_user_addition_pipeline
 from apps.shop.domain.usecases.create_purchase import CreatePurchaseUseCase, CreatePurchaseInputDTO
 from apps.shop.models import PriceDuration, Purchase
 from apps.shop.repositories.pay_system import PaySystemRepository
@@ -147,8 +146,6 @@ def cmd_start(message: telebot.types.Message):
         reply_markup=telebot.types.InlineKeyboardMarkup(keyboard=kb),
         text=greetings_text
     )
-
-    # build_user_addition_pipeline(server_id=1, chat_id=message.chat.id, queue_send="stockholm").apply_async()
 
 
 def build_kb(data: list[tuple[str]]):
