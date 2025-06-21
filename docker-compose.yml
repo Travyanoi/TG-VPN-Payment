@@ -58,7 +58,6 @@ services:
     build:
       context: .
     volumes:
-      - /etc/amnezia/amneziawg/awg0-template.conf:/etc/amnezia/amneziawg/awg0-template.conf
       - /etc/amnezia/amneziawg/awg0.conf:/etc/amnezia/amneziawg/awg0.conf
       - /opt/ssh/worker_key:/root/.ssh/worker_key:ro
       - ~/.ssh/known_hosts:/root/.ssh/known_hosts:ro

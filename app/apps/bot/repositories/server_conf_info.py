@@ -1,4 +1,5 @@
 from typing import Optional, List
+
 from apps.bot.domain.server_conf_info import ServerConfInfoEntity
 from apps.bot.models import ServerConfInfo
 from apps.bot.repositories.base import BaseRepository
