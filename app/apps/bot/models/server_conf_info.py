@@ -1,5 +1,7 @@
 from django.db import models
 
+from apps.core.utils import default_extra_conf
+
 
 class ServerConfInfo(models.Model):
     name = models.CharField(max_length=20, null=True)
@@ -10,6 +12,8 @@ class ServerConfInfo(models.Model):
     privatekey = models.CharField(max_length=44, null=True, blank=True)
     is_active = models.BooleanField("Активна?", default=True)
     is_test = models.BooleanField("Является тестовой?", default=False)
+
+    extra_conf = models.JSONField(default=default_extra_conf)
 
     class Meta:
         verbose_name = 'Сервер'

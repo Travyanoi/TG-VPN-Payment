@@ -1,6 +1,6 @@
-from typing import Optional, TYPE_CHECKING
+from typing import Optional, TYPE_CHECKING, Dict
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 if TYPE_CHECKING:
     from apps.bot.models import ServerConfInfo
@@ -16,12 +16,13 @@ class ServerConfInfoEntity(BaseModel):
     privatekey: Optional[str]
     is_active: bool
     is_test: bool
+    extra_conf: Dict[str, int] = Field(default_factory=dict)
 
     @classmethod
     def from_model(cls, instance: 'ServerConfInfo') -> 'ServerConfInfoEntity':
         return cls(
             pk=instance.pk,
-            product_id=instance.product.pk,
+            product_id=instance.product_id,
             name=instance.name,
             address=instance.address,
             end_point=instance.end_point,
@@ -29,4 +30,5 @@ class ServerConfInfoEntity(BaseModel):
             privatekey=instance.privatekey,
             is_active=instance.is_active,
             is_test=instance.is_test,
+            extra_conf=instance.extra_conf,
         )

@@ -1,5 +1,4 @@
 from typing import Optional, List
-
 from apps.bot.domain.server_conf_info import ServerConfInfoEntity
 from apps.bot.models import ServerConfInfo
 from apps.bot.repositories.base import BaseRepository
@@ -7,8 +6,11 @@ from apps.bot.repositories.base import BaseRepository
 
 class ServerConfInfoRepository(BaseRepository[ServerConfInfo]):
     def get_by_id(self, pk: int) -> Optional[ServerConfInfoEntity]:
-        instance = ServerConfInfo.objects.get(pk=pk)
-        return ServerConfInfoEntity.from_model(instance) if instance else None
+        try:
+            instance = ServerConfInfo.objects.get(pk=pk)
+            return ServerConfInfoEntity.from_model(instance)
+        except ServerConfInfo.DoesNotExist:
+            return None
 
     def get_by_product_id(self, product_id: int) -> Optional[List[ServerConfInfoEntity]]:
         instances = ServerConfInfo.objects.filter(product_id=product_id)
@@ -30,6 +32,7 @@ class ServerConfInfoRepository(BaseRepository[ServerConfInfo]):
                 "privatekey": entity.privatekey,
                 "is_active": entity.is_active,
                 "is_test": entity.is_test,
+                "extra_conf": entity.extra_conf,
             }
         )
         return ServerConfInfoEntity.from_model(instance)
