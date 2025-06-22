@@ -103,7 +103,11 @@ class YooKassa:
             if data_object['status'] == "succeeded":
                 purchase = PurchaseRepository().get_by_id(payment.purchase_id)
                 server = ServerConfInfoRepository().get_by_id(purchase.server_id)
-                build_user_addition_pipeline(server_id=server.pk, chat_id=payment.user_id, queue_send="stockholm").apply_async()
+                build_user_addition_pipeline(
+                    server_id=server.pk,
+                    chat_id=payment.user_id,
+                    queue_send=server.queue_name,
+                ).apply_async()
 
             # TODO обновить payment до статуса внутри data, если success, тогда создаем подписку
 

@@ -53,13 +53,13 @@ logger = structlog.getLogger("bot.bot")
 #
 #     conf_file_formatter()
 
-def send_conf_file(chat_id: int, file_data: bytes):
+def send_conf_file(chat_id: int, file_data: bytes, file_name: str):
     file = BytesIO(file_data)
 
     bot.send_document(
         chat_id=chat_id,
         document=file,
-        visible_file_name=f"{chat_id}.conf",
+        visible_file_name=f"{file_name}.conf",
     )
 
 

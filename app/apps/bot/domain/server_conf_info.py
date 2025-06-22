@@ -16,6 +16,7 @@ class ServerConfInfoEntity(BaseModel):
     privatekey: Optional[str]
     is_active: bool
     is_test: bool
+    queue_name: Optional[str]
     extra_conf: Dict[str, int] = Field(default_factory=dict)
 
     @classmethod
@@ -30,5 +31,6 @@ class ServerConfInfoEntity(BaseModel):
             privatekey=instance.privatekey,
             is_active=instance.is_active,
             is_test=instance.is_test,
+            queue_name=instance.queue_name,
             extra_conf=instance.extra_conf,
         )

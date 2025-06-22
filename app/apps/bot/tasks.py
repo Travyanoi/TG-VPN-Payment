@@ -130,7 +130,8 @@ def notify_user_addition_status(self, result: dict):
         ).encode("utf-8")
 
         from apps.bot.bot import send_conf_file
-        send_conf_file(chat_id, file)
+        file_name = f"{server_info.queue_name}_{chat_id}"
+        send_conf_file(chat_id, file, file_name)
 
         logger.info(f"Файл конфигурации успешно отправлен пользователю {chat_id}")
 

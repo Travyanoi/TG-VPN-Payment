@@ -33,6 +33,7 @@ class ServerConfInfoRepository(BaseRepository[ServerConfInfo]):
                 "privatekey": entity.privatekey,
                 "is_active": entity.is_active,
                 "is_test": entity.is_test,
+                "queue_name": entity.queue_name,
                 "extra_conf": entity.extra_conf,
             }
         )
