@@ -6,6 +6,7 @@ from apps.bot.domain.info_for_conf_file import InfoForConfFileEntity
 from apps.bot.repositories.info_for_conf_file import InfoForConfFileRepository
 from apps.bot.repositories.user_info import UserInfoRepository
 from apps.core.domain.usecases.base import BaseUseCaseInputDTO, BaseUseCase, BaseUseCaseOutputDTO
+from apps.core.utils import generate_wireguard_keypair
 
 
 class GetOrCreateConfFileInputDTO(BaseUseCaseInputDTO):
@@ -47,11 +48,7 @@ class GetOrCreateConfFileUseCase(BaseUseCase[GetOrCreateConfFileInputDTO, InfoFo
         if conf_file:
             return InfoForConfFileOutputDTO.from_entity(conf_file)
 
-        private_key = WireguardKey.generate()
-        public_key = private_key.public_key()
-
-        private_key = f"{private_key.urlsafe}="
-        public_key = f"{public_key.urlsafe}="
+        private_key, public_key = generate_wireguard_keypair()
 
         last_octet = self.conf_file_repo.get_by_server_id(conf_file.server_id)
         address_for_user = f"10.0.0.{len(last_octet) + 2}/32"

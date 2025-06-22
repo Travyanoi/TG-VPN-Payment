@@ -1,5 +1,8 @@
+import base64
 import random
 import uuid
+
+from nacl.public import PrivateKey
 
 
 def generate_md5_token():
@@ -22,3 +25,10 @@ def default_extra_conf():
         "H3": random.randint(0x10000011, 0x7FFFFF00),
         "H4": random.randint(0x10000011, 0x7FFFFF00),
     }
+
+
+def generate_wireguard_keypair() -> tuple[str, str]:
+    private_key_obj = PrivateKey.generate()
+    private_key = base64.b64encode(bytes(private_key_obj)).decode()
+    public_key = base64.b64encode(bytes(private_key_obj.public_key)).decode()
+    return private_key, public_key
