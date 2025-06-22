@@ -50,12 +50,12 @@ class GetOrCreateConfFileUseCase(BaseUseCase[GetOrCreateConfFileInputDTO, InfoFo
 
         private_key, public_key = generate_wireguard_keypair()
 
-        last_octet = self.conf_file_repo.get_by_server_id(conf_file.server_id)
+        last_octet = self.conf_file_repo.get_by_server_id(input_dto.server_id)
         address_for_user = f"10.0.0.{len(last_octet) + 2}/32"
 
         entity = self.conf_file_repo.create(
             user_id=input_dto.user_id,
-            server_id=conf_file.server_id,
+            server_id=input_dto.server_id,
             address=address_for_user,
             publickey=public_key,
             privatekey=private_key,
