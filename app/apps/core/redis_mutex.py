@@ -4,7 +4,7 @@ import time
 
 import redis
 
-from settings.settings import REDIS_PASS
+from settings.settings import REDIS_PASS, REDIS_HOST
 from .errors import (
     BlockTimeExceedError, MutexLockError, MutexUnlockError
 )
@@ -12,7 +12,7 @@ from .errors import (
 DEFAULT_BLOCK_TIME = 5
 DEFAULT_DELAY = 0.1
 DEFAULT_EXPIRY = 7
-DEFAULT_CONN = redis.StrictRedis(host="localhost", port=6379, password=REDIS_PASS, db=0)
+DEFAULT_CONN = redis.StrictRedis(host=REDIS_HOST, port=6379, password=REDIS_PASS, db=0)
 
 
 class RedisMutex(object):

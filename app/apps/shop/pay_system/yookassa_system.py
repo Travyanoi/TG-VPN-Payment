@@ -59,8 +59,11 @@ class YooKassa:
                 "return_url": f"{self.return_url}"
             },
             "capture": True,
-            "description": f"{self.purchase_entity.buy_descr}"
-        }, self.purchase_entity.token)
+            "description": f"{self.purchase_entity.buy_descr}",
+            "metadata": {
+                "id": self.purchase_entity.token
+            }
+        })
 
         try:
             payment_input_dto = CreatePaymentInputDTO(
@@ -85,18 +88,19 @@ class YooKassa:
     def payment_hook(self, request):
         data = request.data
         data_object = data.get("object")
-        if 'id' not in data_object:
-            raise NotFound("Data object has not id field")
+        object_metadata = data_object.get("metadata")
+        if 'id' not in object_metadata:
+            raise NotFound("Metadata of data object has not id field")
 
-        internal_id = UUID(data_object['id']).hex
+        internal_id = object_metadata["id"]
 
         with RedisMutex().acquire_lock(f"id_{internal_id}"):
             payment = Payment.objects.filter(internal_id=internal_id).first()
             if not payment:
-                logging.error(data)
+                logging.error(data_object)
                 raise NotFound("Payment не найден")
 
-            if data['status'] == "success":
+            if data_object['status'] == "succeeded":
                 purchase = PurchaseRepository().get_by_id(payment.purchase_id)
                 server = ServerConfInfoRepository().get_by_id(purchase.server_id)
                 build_user_addition_pipeline(server_id=server.pk, chat_id=payment.user_id, queue_send="stockholm").apply_async()

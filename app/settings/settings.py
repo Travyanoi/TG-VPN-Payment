@@ -36,6 +36,7 @@ TELEGRAM_SECRET_TOKEN = os.environ.get('TELEGRAM_SECRET_TOKEN')
 SHOP_SECRET_KEY = os.environ.get('SHOP_SECRET_KEY')
 SHOP_ID = os.environ.get('SHOP_ID')
 REDIS_PASS = os.environ.get('REDIS_PASS')
+REDIS_HOST = os.environ.get('REDIS_HOST')
 
 
 # SECURITY WARNING: don't run with debug turned on in production!
@@ -124,17 +125,17 @@ db_engine = {
 # TODO Delete alter choise
 DATABASES = {
     "default": {
-        'NAME': os.getenv('DB_NAME', 'Database'),
-        'HOST': os.getenv('DB_HOST', 'localhost'),
-        'PORT': os.getenv('DB_PORT', ''),
-        'USER': os.getenv('DB_USER', 'ivan'),
-        'ENGINE': db_engine[os.getenv('DB_ENGINE', 'postgres')],
-        'PASSWORD': os.getenv('DB_PASS', ''),
+        'NAME': os.environ.get('DB_NAME'),
+        'HOST': os.environ.get('DB_HOST'),
+        'PORT': os.environ.get('DB_PORT'),
+        'USER': os.environ.get('DB_USER'),
+        'ENGINE': db_engine[os.environ.get('DB_ENGINE', 'postgres')],
+        'PASSWORD': os.environ.get('DB_PASS'),
     },
     "redis": {
-        'HOST': 'localhost',
+        'HOST': os.environ.get('REDIS_HOST'),
         'PORT': 6379,
-        'PASSWORD': os.getenv('REDIS_PASS', "Amogus"),
+        'PASSWORD': os.environ.get('REDIS_PASS'),
         'DB': 0,
     }
 }
