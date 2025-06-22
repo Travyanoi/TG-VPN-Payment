@@ -12,6 +12,7 @@ class ServerConfInfo(models.Model):
     privatekey = models.CharField(max_length=44, null=True, blank=True)
     is_active = models.BooleanField("Активна?", default=True)
     is_test = models.BooleanField("Является тестовой?", default=False)
+    queue_name = models.CharField("Название очереди для данного сервера", unique=True, null=True)
 
     extra_conf = models.JSONField(default=default_extra_conf)
 
