@@ -49,7 +49,7 @@ def add_user_to_wireguard(self, server_id: int, chat_id: str):
             f"AllowedIPs = {user_conf.address}\n"
         )
 
-        config_content = config_content.rstrip() + peer_block + "\n"
+        config_content = config_content.rstrip() + "\n" + peer_block + "\n"
 
         with open(config_path, "w") as f:
             f.write(config_content)
