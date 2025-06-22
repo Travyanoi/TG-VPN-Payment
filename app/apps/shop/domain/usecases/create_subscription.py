@@ -1,4 +1,4 @@
-import datetime
+from datetime import datetime, timedelta, UTC
 
 from apps.core.domain.usecases.base import BaseUseCase, BaseUseCaseOutputDTO, BaseUseCaseInputDTO
 from apps.shop.repositories.subscription import SubscriptionRepository
@@ -7,7 +7,7 @@ from apps.shop.repositories.subscription import SubscriptionRepository
 class CreateSubscriptionInputDTO(BaseUseCaseInputDTO):
     user_id: str
     server_id: int
-    duration_days: datetime
+    duration_days: int
 
 
 class CreateSubscriptionOutputDTO(BaseUseCaseOutputDTO):
@@ -20,9 +20,8 @@ class CreateSubscriptionUseCase(BaseUseCase[CreateSubscriptionInputDTO, CreateSu
         self.subscription = SubscriptionRepository()
 
     def _execute(self, input_dto: CreateSubscriptionInputDTO) -> CreateSubscriptionOutputDTO:
-
-        start_date = datetime.datetime.now(tz=datetime.UTC)
-        expired_date = start_date + datetime.timedelta(days=input_dto.duration_days)
+        start_date = datetime.now(tz=UTC)
+        expired_date = start_date + timedelta(days=input_dto.duration_days)
 
         sub = self.subscription.create(
             user_id=input_dto.user_id,
