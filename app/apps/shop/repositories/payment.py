@@ -13,6 +13,13 @@ class PaymentRepository(BaseRepository[PaymentEntity]):
         except Payment.DoesNotExist:
             return None
 
+    def get_by_internal_id(self, internal_id: str) -> Optional[PaymentEntity]:
+        try:
+            instance = Payment.objects.get(internal_id=internal_id)
+            return PaymentEntity.from_model(instance)
+        except Payment.DoesNotExist:
+            return None
+
     def get_by_purchase(self, purchase_id: int) -> List[PaymentEntity]:
         instances = Payment.objects.filter(purchase_id=purchase_id)
         return [PaymentEntity.from_model(instance) for instance in instances]

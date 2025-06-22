@@ -222,28 +222,7 @@ def buy_sub_cmd(message: telebot.types.CallbackQuery):
     #     server_id=int(server_id)
     # )
     # conf_file_dto = InfoForConfFileInputDTO.from_entity(conf_file_entity)
-    #
-    # byte_string = CreateConfigFileForUserUseCase().execute(conf_file_dto)
-    #
-    # bot.delete_message(chat_id=message.message.chat.id, message_id=message.message.message_id)
-    # try:
-    #     bot.send_document(
-    #         chat_id=message.message.chat.id,
-    #         document=byte_string,
-    #         visible_file_name=f"{message.message.chat.id}.conf"
-    #     )
-    # except ApiTelegramException as tele_exc:
-    #     logger.error("Telegram API exception", exc_info=True, detail=str(tele_exc))
-    #     bot.send_message(
-    #         chat_id=message.message.chat.id,
-    #         text="Произошла ошибка, обратитесь в поддержку!"
-    #     )
-    #
-    # bot.send_message(
-    #     chat_id=message.message.chat.id,
-    #     reply_markup=telebot.types.InlineKeyboardMarkup(keyboard=kb),
-    #     text=conf_file_text
-    # )
+
 
     pay_systems = PaySystemRepository().all()
     for pay_system in pay_systems:
@@ -321,7 +300,6 @@ def payment_cmd(message: telebot.types.CallbackQuery):
     # )
 
 
-# TODO тут скорее всего должна быть прослойка с выбором конкретного сервера из возможных, если их несколько
 @bot.callback_query_handler(func=lambda call: call.data == "rebuild_conf_file")
 def rebuild_conf_cmd(message: telebot.types.CallbackQuery):
     kb = [global_kb[0]] + [global_kb[2]]
@@ -329,7 +307,6 @@ def rebuild_conf_cmd(message: telebot.types.CallbackQuery):
     client = InfoForConfFile.objects.get(chat_id=message.message.chat.id)
 
     if client.enable is True:
-        # TODO Обращение к юзкейсу
         byte_string = conf_file_for_user(chat_id)
 
         byte_string.seek(0)

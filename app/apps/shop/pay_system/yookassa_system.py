@@ -4,13 +4,18 @@ from uuid import UUID
 from django.http import JsonResponse
 from rest_framework.exceptions import ValidationError, NotFound
 
+from apps.bot.domain.usecases.create_conf_file import GetOrCreateConfFileUseCase, GetOrCreateConfFileInputDTO
 from apps.bot.repositories.server_conf_info import ServerConfInfoRepository
 from apps.bot.repositories.user_info import UserInfoRepository
 from apps.bot.workflows.user_addition_amnesiawg import build_user_addition_pipeline
 from apps.core.redis_mutex import RedisMutex
 from apps.shop.domain.usecases.create_payment import CreatePaymentInputDTO, CreatePaymentUseCase
+from apps.shop.domain.usecases.create_subscription import CreateSubscriptionUseCase, CreateSubscriptionInputDTO
 from apps.shop.models import Payment
+from apps.shop.repositories.payment import PaymentRepository
+from apps.shop.repositories.price_duration import PriceDurationRepository
 from apps.shop.repositories.purchase import PurchaseRepository
+from apps.shop.repositories.subscription import SubscriptionRepository
 from settings.settings import SHOP_ID, SHOP_SECRET_KEY
 
 from yookassa import Configuration, Payment as YooKassaPayment
@@ -94,21 +99,42 @@ class YooKassa:
 
         internal_id = object_metadata["id"]
 
-        with RedisMutex().acquire_lock(f"id_{internal_id}"):
-            payment = Payment.objects.filter(internal_id=internal_id).first()
+        with (RedisMutex().acquire_lock(f"id_{internal_id}")):
+            payment_repo = PaymentRepository()
+            payment = payment_repo.get_by_internal_id(internal_id=internal_id)
             if not payment:
                 logging.error(data_object)
                 raise NotFound("Payment не найден")
 
             if data_object['status'] == "succeeded":
+                payment.status_code = 2
+                payment_repo.save(payment)
+
                 purchase = PurchaseRepository().get_by_id(payment.purchase_id)
                 server = ServerConfInfoRepository().get_by_id(purchase.server_id)
+                price_duration_repo = PriceDurationRepository()
+                price_duration = price_duration_repo.get_by_id(purchase.price_duration_id)
+
+                sub_input_dto = CreateSubscriptionInputDTO(
+                    user_id=payment.user_id,
+                    server_id=server.pk,
+                    duration_days=price_duration.duration
+                )
+
+                CreateSubscriptionUseCase().execute(sub_input_dto)
+
+                conf_file_input_dto = GetOrCreateConfFileInputDTO(
+                    user_id=payment.user_id,
+                    server_id=server.pk,
+                )
+
+                GetOrCreateConfFileUseCase().execute(conf_file_input_dto)
+
+
                 build_user_addition_pipeline(
                     server_id=server.pk,
                     chat_id=payment.user_id,
                     queue_send=server.queue_name,
                 ).apply_async()
-
-            # TODO обновить payment до статуса внутри data, если success, тогда создаем подписку
 
             return JsonResponse({'status': 'ok'})
