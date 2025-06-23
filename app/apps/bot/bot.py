@@ -9,8 +9,10 @@ from telebot.types import InlineKeyboardButton
 from apps.bot.exception_handler import MyExceptionHandler
 from apps.bot.keyboards import global_kb
 from apps.bot.models import UserInfo, InfoForConfFile, ServerConfInfo
+from apps.bot.repositories.info_for_conf_file import InfoForConfFileRepository
 from apps.bot.repositories.server_conf_info import ServerConfInfoRepository
 from apps.bot.templates import *
+from apps.shop.domain.usecases.calculate_price import CalculateProductPriceUseCase, PriceDurationInputDTO
 from apps.shop.domain.usecases.create_purchase import CreatePurchaseUseCase, CreatePurchaseInputDTO
 from apps.shop.repositories.pay_system import PaySystemRepository
 from apps.shop.repositories.price_duration import PriceDurationRepository
@@ -63,12 +65,12 @@ def build_kb(data: list[tuple[str]]):
 
 
 @bot.callback_query_handler(func=lambda call: call.data == 'buy_sub')
-def buy_sub_cmd(message: telebot.types.CallbackQuery):
+def location_choise_cmd(message: telebot.types.CallbackQuery):
     kb = []
     products = ProductRepository().all()
     for product in products:
         kb.append([InlineKeyboardButton(
-            text=f'{product.name} - {product.base_price} Руб в месяц',
+            text=f'{product.name} - {product.base_price} рублей в месяц',
             callback_data=f'{str(product.pk)}_product'
         )
         ])
@@ -81,7 +83,7 @@ def buy_sub_cmd(message: telebot.types.CallbackQuery):
 
 
 @bot.callback_query_handler(func=lambda call: call.data.endswith('_product'))
-def buy_sub_cmd(message: telebot.types.CallbackQuery):
+def server_choise_cmd(message: telebot.types.CallbackQuery):
     kb = []
     product_id = message.data.split("_")[0]
     servers = ServerConfInfoRepository().get_by_product_id(int(product_id))
@@ -96,17 +98,21 @@ def buy_sub_cmd(message: telebot.types.CallbackQuery):
 
 
 @bot.callback_query_handler(func=lambda call: call.data.endswith('_server'))
-def buy_sub_cmd(message: telebot.types.CallbackQuery):
+def sub_duration_cmd(message: telebot.types.CallbackQuery):
     kb = []
     split_data = message.data.split("_")
     product_id = split_data[0]
     server_id = split_data[1]
 
+    # user_conf = InfoForConfFileRepository().get_by_user_server_id(message.message.chat.id, server_id)
+
     price_durations = PriceDurationRepository().get_by_product_id(product_id=int(product_id))
     for duration in price_durations:
+        input_dto = PriceDurationInputDTO.from_entity(duration)
+        output_dto = CalculateProductPriceUseCase().execute(input_dto)
         kb.append([
             InlineKeyboardButton(
-                text=f'{duration.duration} дней',
+                text=f'{duration.duration} дней - {output_dto.total_price} рублей',
                 callback_data=f'{duration.pk}_{product_id}_{server_id}_duration'
             )
         ])
@@ -120,7 +126,7 @@ def buy_sub_cmd(message: telebot.types.CallbackQuery):
 
 
 @bot.callback_query_handler(func=lambda call: call.data.endswith('_duration'))
-def buy_sub_cmd(message: telebot.types.CallbackQuery):
+def payment_method_cmd(message: telebot.types.CallbackQuery):
     kb = []
 
     pay_systems = PaySystemRepository().all()
@@ -141,7 +147,7 @@ def buy_sub_cmd(message: telebot.types.CallbackQuery):
 
 
 @bot.callback_query_handler(func=lambda call: call.data.endswith('_paysystem'))
-def buy_sub_cmd(message: telebot.types.CallbackQuery):
+def payment_link(message: telebot.types.CallbackQuery):
     kb = []
     pay_system_id, duration_id, product_id, server_id, _ = message.data.split("_")
     purchase_input_dto = CreatePurchaseInputDTO(
