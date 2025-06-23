@@ -18,6 +18,10 @@ class PaymentHookView(APIView):
         if not data:
             raise ValidationError("Request doesn't contains a data")
 
+        if not data.get('object'):
+            raise ValidationError("Request doesn't contains a object of data")
+
+
         payment_system = PaySystemRepository().get_by_class_name(class_name=class_name)
 
         if not payment_system:

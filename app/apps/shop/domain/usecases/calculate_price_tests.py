@@ -29,10 +29,8 @@ def test_product_active_without_discount(f_price_duration: 'PriceDuration'):
     expected_total = (f_price_duration.product.base_price * months).quantize(Decimal("0.01"))
 
     assert result.base_price == f_price_duration.product.base_price
-
-
-assert result.discount_percent is None
-assert result.total_price == expected_total
+    assert result.discount_percent is None
+    assert result.total_price == expected_total
 
 
 def test_product_active_with_discount(f_price_duration, f_active_discount):

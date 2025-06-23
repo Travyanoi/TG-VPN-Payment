@@ -129,7 +129,7 @@ def conf_file_formatter():
 
 @bot.message_handler(commands=['start'])
 def cmd_start(message: telebot.types.Message):
-    kb = [global_kb[0]] + [global_kb[1]] + [global_kb[2]]
+    kb = [global_kb[0]]
 
     # TODO репозиторий
     UserInfo.objects.get_or_create(

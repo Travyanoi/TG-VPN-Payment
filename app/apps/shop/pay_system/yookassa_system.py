@@ -94,8 +94,8 @@ class YooKassa:
         data = request.data
         data_object = data.get("object")
         object_metadata = data_object.get("metadata")
-        if 'id' not in object_metadata:
-            raise NotFound("Metadata of data object has not id field")
+        if not object_metadata or 'id' not in object_metadata:
+            raise NotFound("Metadata of data object has not id field or not found")
 
         internal_id = object_metadata["id"]
 
