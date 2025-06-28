@@ -10,8 +10,13 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/4.2/ref/settings/
 """
 import os
+import sys
 from pathlib import Path
+
+import structlog
 from dotenv import load_dotenv
+
+from settings.logs import configure_logger
 
 load_dotenv()
 
@@ -28,29 +33,52 @@ SECRET_KEY = 'django-insecure-9#r*6sn_@tvf*0vr-)4q=@e()=2z)#jzzqc04#p$seb$&v!a*m
 BOT_SECRET_TOKEN = os.environ.get('BOT_TOKEN')
 WEBHOOK_PATH = os.environ.get('WEBHOOK_PATH')
 TELEGRAM_SECRET_TOKEN = os.environ.get('TELEGRAM_SECRET_TOKEN')
+SHOP_SECRET_KEY = os.environ.get('SHOP_SECRET_KEY')
+SHOP_ID = os.environ.get('SHOP_ID')
+REDIS_PASS = os.environ.get('REDIS_PASS')
+REDIS_HOST = os.environ.get('REDIS_HOST')
+
+
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = os.getenv('DEBUG', "False").lower() in ("1", "true")
+
+if DEBUG:
+    environment = 'debug'
+else:
+    environment = 'production'
 
 ALLOWED_HOSTS = ['*']
 
 
 # Application definition
 
-INSTALLED_APPS = [
+DJANGO_APPS = [
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    'apps.bot'
 ]
+
+EXTERNAL_APPS = [
+    'rest_framework',
+    'django_celery_beat',
+]
+
+MY_APPS = [
+    'apps.bot',
+    "apps.shop",
+    'apps.core',
+]
+
+INSTALLED_APPS = DJANGO_APPS + EXTERNAL_APPS + MY_APPS
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
-    'django.middleware.csrf.CsrfViewMiddleware',
+    # 'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
@@ -78,6 +106,12 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'settings.wsgi.application'
 
+REST_FRAMEWORK = {
+    "DEFAULT_RENDERER_CLASSES": [
+        'rest_framework.renderers.JSONRenderer',
+    ],
+}
+
 
 # Database
 # https://docs.djangoproject.com/en/4.2/ref/settings/#databases
@@ -88,15 +122,21 @@ db_engine = {
     'sqlite': 'django.db.backends.sqlite3',
     'mysql': 'django.db.backends.mysql',
 }
-
+# TODO Delete alter choise
 DATABASES = {
     "default": {
-        'NAME': os.getenv('DB_NAME', 'hacks'),
-        'HOST': os.getenv('DB_HOST', 'localhost'),
-        'PORT': os.getenv('DB_PORT', ''),
-        'USER': os.getenv('DB_USER', 'postgres'),
-        'ENGINE': db_engine[os.getenv('DB_ENGINE', 'postgres')],
-        'PASSWORD': os.getenv('DB_PASS', ''),
+        'NAME': os.environ.get('DB_NAME'),
+        'HOST': os.environ.get('DB_HOST'),
+        'PORT': os.environ.get('DB_PORT'),
+        'USER': os.environ.get('DB_USER'),
+        'ENGINE': db_engine[os.environ.get('DB_ENGINE', 'postgres')],
+        'PASSWORD': os.environ.get('DB_PASS'),
+    },
+    "redis": {
+        'HOST': os.environ.get('REDIS_HOST'),
+        'PORT': 6379,
+        'PASSWORD': os.environ.get('REDIS_PASS'),
+        'DB': 0,
     }
 }
 
@@ -135,11 +175,70 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/4.2/howto/static-files/
 
 STATIC_URL = 'static/'
+STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/4.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-#Custom directories
+# Custom directories
 WG_CONF_ROOT = os.path.join(BASE_DIR, 'conf_wg')
+
+# Logging
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'filters': {
+        'require_debug_true': {
+            '()': 'django.utils.log.RequireDebugTrue',
+        }
+    },
+    'formatters': {
+        'json': {
+            '()': structlog.stdlib.ProcessorFormatter,
+            'processor': structlog.processors.JSONRenderer(),
+        },
+        'console': {
+            '()': structlog.stdlib.ProcessorFormatter,
+            'processor': structlog.dev.ConsoleRenderer(),
+        },
+    },
+    'handlers': {
+        'console_debug': {
+            'class': 'logging.StreamHandler',
+            'level': 'DEBUG',
+            'formatter': 'console',
+            'filters': ['require_debug_true'],
+            'stream': sys.stdout
+        },
+        'console': {
+            'class': 'logging.StreamHandler',
+            'formatter': 'console',
+            'level': 'INFO',
+            'stream': sys.stdout
+        },
+    },
+    'loggers': {
+        '': {
+            'level': 'DEBUG' if DEBUG else 'INFO',
+            'handlers': ['console_debug'] if DEBUG else ['console'],
+        },
+        'django.db.backends': {
+            'level': 'DEBUG',
+            'handlers': ['console_debug'],
+        },
+        'django.request': {
+            'handlers': ['console'],
+            'level': 'ERROR',
+            'propagate': True,
+        },
+        'django': {
+            'handlers': ['console'],
+            'level': 'ERROR',
+            'propagate': False,
+        },
+    },
+}
+
+configure_logger(log_level='DEBUG' if DEBUG else 'INFO', env_profile=environment)

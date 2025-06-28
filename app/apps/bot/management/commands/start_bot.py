@@ -1,6 +1,9 @@
 from django.core.management.base import BaseCommand
-from apps.bot.bot import BotPolling
-import asyncio
+from apps.bot.bot import bot_polling
+
+import structlog
+
+logger = structlog.getLogger('telebot')
 
 
 class Command(BaseCommand):
@@ -8,6 +11,9 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         try:
-            BotPolling()
+            logger.info("trying configure webhook")
+            bot_polling()
+        except Exception as e:
+            logger.error(f"Webhook doesn't configured = {e}")
         finally:
-            print("Webhook editing has done!\n")
+            logger.info("Webhook editing has done!")

@@ -1,0 +1,65 @@
+from typing import Optional
+
+from wireguard_tools import WireguardKey
+
+from apps.bot.domain.info_for_conf_file import InfoForConfFileEntity
+from apps.bot.repositories.info_for_conf_file import InfoForConfFileRepository
+from apps.bot.repositories.user_info import UserInfoRepository
+from apps.core.domain.usecases.base import BaseUseCaseInputDTO, BaseUseCase, BaseUseCaseOutputDTO
+from apps.core.utils import generate_wireguard_keypair
+
+
+class GetOrCreateConfFileInputDTO(BaseUseCaseInputDTO):
+    user_id: str
+    server_id: int
+
+
+class InfoForConfFileOutputDTO(BaseUseCaseOutputDTO):
+    pk: int
+    user_id: str
+    server_id: int
+    address: Optional[str]
+    publickey: str
+    privatekey: str
+    enable: bool
+
+    @classmethod
+    def from_entity(cls, entity: 'InfoForConfFileEntity'):
+        return InfoForConfFileOutputDTO(
+            pk=entity.pk,
+            user_id=entity.user_id,
+            server_id=entity.server_id,
+            address=entity.address,
+            publickey=entity.publickey,
+            privatekey=entity.privatekey,
+            enable=entity.enable,
+        )
+
+
+class GetOrCreateConfFileUseCase(BaseUseCase[GetOrCreateConfFileInputDTO, InfoForConfFileOutputDTO]):
+    def __init__(self):
+        super().__init__()
+        self.conf_file_repo = InfoForConfFileRepository()
+        self.user_repo = UserInfoRepository()
+
+    def _execute(self, input_dto: GetOrCreateConfFileInputDTO) -> InfoForConfFileOutputDTO:
+        conf_file = self.conf_file_repo.get_by_user_server_id(input_dto.user_id, input_dto.server_id)
+
+        if conf_file:
+            return InfoForConfFileOutputDTO.from_entity(conf_file)
+
+        private_key, public_key = generate_wireguard_keypair()
+
+        last_octet = self.conf_file_repo.get_by_server_id(input_dto.server_id)
+        address_for_user = f"10.10.0.{len(last_octet) + 2}/32"
+
+        entity = self.conf_file_repo.create(
+            user_id=input_dto.user_id,
+            server_id=input_dto.server_id,
+            address=address_for_user,
+            publickey=public_key,
+            privatekey=private_key,
+            enable=True,
+        )
+
+        return InfoForConfFileOutputDTO.from_entity(entity)

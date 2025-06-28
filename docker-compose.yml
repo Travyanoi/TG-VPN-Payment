@@ -1,20 +1,104 @@
 version: '3.9'
 
 x-container: &container
+  env_file:
+    - .env
   restart: always
+  environment:
+    PYTHONIOENCODING: "UTF-8"
+    LANG: "C.UTF-8"
+    LC_ALL: "C.UTF-8"
   logging:
     options:
       max-size: "200k"
       max-file: "10"
+
+
 services:
   db:
     <<: *container
-    image: postgres:13.3
+    image: postgres:16-alpine
     environment:
       POSTGRES_DB: $DB_NAME
       POSTGRES_USER: $DB_USER
       POSTGRES_PASSWORD: $DB_PASS
     volumes:
-      - ./volumes/psql:/var/lib/postgresql/data
+      - ./volumes/postgresql:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    sysctls:
+      - net.core.somaxconn=2048
+
+  redis:
+    <<: *container
+    image: redis/redis-stack-server:7.4.0-v3
+    environment:
+      - REDIS_ARGS=--bind 0.0.0.0 --port 6379 --requirepass ${REDIS_PASS} --maxmemory 1000mb --maxmemory-policy volatile-ttl
+    volumes:
+      - ./volumes/redis:/data
+    ports:
+      - "6379:6379"
+    sysctls:
+      - net.core.somaxconn=2048
+
+  rabbitmq:
+    <<: *container
+    image: rabbitmq:3.13.1-management
+    volumes:
+      - ./volumes/rabbitmq:/var/lib/rabbitmq/mnesia
+      - ./config/rabbitmq/rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf
+      - ./config/rabbitmq/definitions.json:/etc/rabbitmq/definitions.json
+    ports:
+      - "5672:5672"
+      - "15672"
+      - "15692"
+
+  celery:
+    <<: *container
+    build:
+      context: .
+    volumes:
+      - /etc/amnezia/amneziawg/awg0.conf:/etc/amnezia/amneziawg/awg0.conf
+      - /opt/ssh/worker_key:/root/.ssh/worker_key:ro
+      - ~/.ssh/known_hosts:/root/.ssh/known_hosts:ro
+    command: celery -A settings worker -l info --prefetch-multiplier=1 -Q $QUEUE_NAME -E
+
+  celerybeat:
+    <<: *container
+    build:
+      context: .
+    command: celery -A settings beat -l info
+
+  api:
+    <<: *container
+    build:
+      context: .
+    command:
+      - gunicorn
+      - --config=conf/gunicorn.conf.py
+      - settings.wsgi:application
     expose:
-      - "$DB_PORT"
+      - 8000
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.${COMPOSE_PROJECT_NAME}-api.tls=true
+      - traefik.http.routers.${COMPOSE_PROJECT_NAME}-api.tls.certresolver=letsencrypt
+      - traefik.http.routers.${COMPOSE_PROJECT_NAME}-api.rule=Host(`$VIRTUAL_HOST`)
+      - traefik.http.routers.${COMPOSE_PROJECT_NAME}-api.entrypoints=https
+      - traefik.http.services.${COMPOSE_PROJECT_NAME}-api.loadbalancer.server.port=8000
+      - traefik.http.services.${COMPOSE_PROJECT_NAME}-api.loadbalancer.server.scheme=http
+      - traefik.http.routers.${COMPOSE_PROJECT_NAME}-api-http.rule=Host(`$VIRTUAL_HOST`)
+      - traefik.http.routers.${COMPOSE_PROJECT_NAME}-api-http.entrypoints=http
+      - traefik.http.routers.${COMPOSE_PROJECT_NAME}-api-http.middlewares=default-https-redirect@file
+
+  collectstatic:
+    <<: *container
+    build:
+      context: .
+    restart: "no"
+    command:
+      - sh
+      - -xec
+      - |
+        python manage.py migrate
+        python manage.py collectstatic --noinput -v 0
